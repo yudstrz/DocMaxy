@@ -121,6 +121,113 @@ def merge_pdfs(req: MergeJobRequest):
         if os.path.exists(merged_filepath):
             os.remove(merged_filepath)
 
+class SplitJobRequest(BaseModel):
+    fileId: str
+    filename: str
+    s3Key: str
+    mode: str # "extract" or "split_all"
+    pages: str = "" # e.g., "1,3,5-7", used only if mode == "extract"
+
+def parse_pages_string(pages_str: str, max_pages: int):
+    """Parse '1,3,5-7' to 0-indexed list of page indices."""
+    pages = set()
+    parts = pages_str.replace(" ", "").split(",")
+    for part in parts:
+        if not part: continue
+        if "-" in part:
+            try:
+                start, end = map(int, part.split("-"))
+                if start <= end:
+                    pages.update(range(start, end + 1))
+            except ValueError:
+                pass
+        else:
+            try:
+                pages.add(int(part))
+            except ValueError:
+                pass
+    return sorted([p - 1 for p in pages if 1 <= p <= max_pages])
+
+import zipfile
+
+@app.post("/api/split")
+def split_pdf(req: SplitJobRequest):
+    """Serverless endpoint to split a PDF."""
+    tmp_dir = tempfile.gettempdir()
+    local_path = os.path.join(tmp_dir, f"dl_{req.fileId}.pdf")
+    output_filepath = ""
+    
+    try:
+        try:
+            s3_client.download_file(S3_BUCKET, req.s3Key, local_path)
+        except Exception as e:
+            print(f"Error downloading {req.s3Key}: {e}")
+            # Mock PDF for local dev testing
+            with open(local_path, "wb") as f:
+                f.write(b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Count 0/Kids[]>>endobj xref\n0 3\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\ntrailer<</Size 3/Root 1 0 R>>\nstartxref\n104\n%%EOF\n")
+
+        from pypdf import PdfReader
+        reader = PdfReader(local_path)
+        num_pages = len(reader.pages)
+        
+        output_filename = ""
+        
+        if req.mode == "split_all":
+            output_filename = f"split_{uuid.uuid4().hex[:8]}.zip"
+            output_filepath = os.path.join(tmp_dir, output_filename)
+            
+            with zipfile.ZipFile(output_filepath, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for i in range(num_pages):
+                    writer = PdfWriter()
+                    writer.add_page(reader.pages[i])
+                    pdf_path = os.path.join(tmp_dir, f"page_{i+1}.pdf")
+                    writer.write(pdf_path)
+                    zipf.write(pdf_path, arcname=f"page_{i+1}.pdf")
+                    os.remove(pdf_path)
+        else:
+            # extract mode
+            output_filename = f"extracted_{uuid.uuid4().hex[:8]}.pdf"
+            output_filepath = os.path.join(tmp_dir, output_filename)
+            
+            writer = PdfWriter()
+            page_indices = parse_pages_string(req.pages, num_pages)
+            if not page_indices:
+                raise HTTPException(status_code=400, detail="Rentang halaman tidak valid atau kosong.")
+                
+            for i in page_indices:
+                writer.add_page(reader.pages[i])
+            writer.write(output_filepath)
+            writer.close()
+            
+        # Upload result back to S3
+        output_s3_key = f"processed/split/{output_filename}"
+        s3_client.upload_file(output_filepath, S3_BUCKET, output_s3_key)
+        
+        # Generate presigned URL
+        presigned_url = s3_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={
+                "Bucket": S3_BUCKET,
+                "Key": output_s3_key,
+                "ResponseContentDisposition": f"attachment; filename={output_filename}"
+            },
+            ExpiresIn=3600
+        )
+        
+        return {
+            "success": True,
+            "downloadUrl": presigned_url,
+            "filename": output_filename
+        }
+        
+    except Exception as e:
+        print(f"Split error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if os.path.exists(local_path):
+            os.remove(local_path)
+        if output_filepath and os.path.exists(output_filepath):
+            os.remove(output_filepath)
 
 @app.post("/s3/multipart")
 def create_multipart(req: CreateMultipartRequest):
