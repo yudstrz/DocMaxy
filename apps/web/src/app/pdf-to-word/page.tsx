@@ -138,7 +138,7 @@ export default function PdfToWordPage() {
         setResultMode('single');
         setDownloadUrl(URL.createObjectURL(results[0].blob));
         const originalName = documents[0].file.name.replace(/\.[^/.]+$/, '');
-        setDownloadFilename(`${originalName}_DocMaxy.docx`);
+        setDownloadFilename(`${originalName} (Converted).docx`);
       } else {
         const zip = new JSZip();
         for (const r of results) {
@@ -147,7 +147,7 @@ export default function PdfToWordPage() {
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         setResultMode('zip');
         setDownloadUrl(URL.createObjectURL(zipBlob));
-        setDownloadFilename(`DocMaxy_PDFtoWord_${Date.now()}.zip`);
+        setDownloadFilename(`PDF_to_Word_${Date.now()}.zip`);
       }
 
       toast.success('Berhasil dikonversi ke Word!');

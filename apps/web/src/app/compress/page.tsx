@@ -79,13 +79,13 @@ export default function CompressPage() {
         const blob = new Blob([results[0].bytes as BlobPart], { type: 'application/pdf' });
         setDownloadUrl(URL.createObjectURL(blob));
         const originalName = documents[0].file.name.replace(/\.[^/.]+$/, '');
-        setDownloadFilename(`${originalName}_DocMaxy.pdf`);
+        setDownloadFilename(`${originalName} (Compressed).pdf`);
       } else {
         const zip = new JSZip();
         results.forEach((r) => zip.file(r.name, r.bytes));
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         setDownloadUrl(URL.createObjectURL(zipBlob));
-        setDownloadFilename(`DocMaxy_Compress_${Date.now()}.zip`);
+        setDownloadFilename(`Compressed_Files_${Date.now()}.zip`);
       }
       toast.success('File berhasil dikompres!');
     } catch (e: any) {

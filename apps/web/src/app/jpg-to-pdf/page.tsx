@@ -101,9 +101,9 @@ export default function Img2PdfPage() {
       setDownloadUrl(URL.createObjectURL(blob));
       if (documents.length === 1) {
         const originalName = documents[0].file.name.replace(/\.[^/.]+$/, '');
-        setDownloadFilename(`${originalName}_DocMaxy.pdf`);
+        setDownloadFilename(`${originalName} (Converted).pdf`);
       } else {
-        setDownloadFilename(`DocMaxy_ImageToPDF_${Date.now()}.pdf`);
+        setDownloadFilename(`Images_to_PDF_${Date.now()}.pdf`);
       }
       toast.success('Berhasil diubah ke PDF!');
     } catch (e: any) {

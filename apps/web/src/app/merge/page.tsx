@@ -48,7 +48,7 @@ export default function MergePage() {
       const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
-      setDownloadFilename(`DocMaxy_Merged_${Date.now()}.pdf`);
+      setDownloadFilename(`Merged_Document_${Date.now()}.pdf`);
       toast.success('Berhasil digabungkan!');
     } catch (e: any) {
       toast.error(e.message || 'Gagal memproses file.');

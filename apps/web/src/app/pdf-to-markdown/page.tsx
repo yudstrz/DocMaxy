@@ -51,7 +51,7 @@ export default function PdfToMarkdownPage() {
         setResultMode('single');
         setDownloadUrl(URL.createObjectURL(blob));
         const originalName = documents[0].file.name.replace(/\.[^/.]+$/, '');
-        setDownloadFilename(`${originalName}_DocMaxy.md`);
+        setDownloadFilename(`${originalName} (Converted).md`);
       } else {
         const zip = new JSZip();
         for (const r of results) {
@@ -60,7 +60,7 @@ export default function PdfToMarkdownPage() {
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         setResultMode('zip');
         setDownloadUrl(URL.createObjectURL(zipBlob));
-        setDownloadFilename(`DocMaxy_PDFtoMD_${Date.now()}.zip`);
+        setDownloadFilename(`PDF_to_Markdown_${Date.now()}.zip`);
       }
 
       toast.success('Berhasil dikonversi ke Markdown!');

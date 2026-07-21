@@ -51,7 +51,7 @@ export default function SplitPage() {
         setResultMode('single');
         setDownloadUrl(URL.createObjectURL(blob));
         const originalName = documents[0].file.name.replace(/\.[^/.]+$/, '');
-        setDownloadFilename(`${originalName}_DocMaxy.pdf`);
+        setDownloadFilename(`${originalName} (Extracted).pdf`);
       } else {
         const zip = new JSZip();
         const baseName = documents[0].file.name.replace(/\.[^/.]+$/, "");
@@ -67,7 +67,7 @@ export default function SplitPage() {
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         setResultMode('zip');
         setDownloadUrl(URL.createObjectURL(zipBlob));
-        setDownloadFilename(`DocMaxy_Split_${Date.now()}.zip`);
+        setDownloadFilename(`Split_Files_${Date.now()}.zip`);
       }
       toast.success('Berhasil dipisahkan!');
     } catch (e: any) {

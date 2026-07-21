@@ -59,14 +59,14 @@ export default function RotatePage() {
         setResultMode('single');
         setDownloadUrl(URL.createObjectURL(blob));
         const originalName = documents[0].file.name.replace(/\.[^/.]+$/, '');
-        setDownloadFilename(`${originalName}_DocMaxy.pdf`);
+        setDownloadFilename(`${originalName} (Rotated).pdf`);
       } else {
         const zip = new JSZip();
         results.forEach((res) => zip.file(res.name, res.bytes));
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         setResultMode('zip');
         setDownloadUrl(URL.createObjectURL(zipBlob));
-        setDownloadFilename(`DocMaxy_Rotated_${Date.now()}.zip`);
+        setDownloadFilename(`Rotated_Files_${Date.now()}.zip`);
       }
       toast.success('Berhasil diputar!');
     } catch (e: any) {

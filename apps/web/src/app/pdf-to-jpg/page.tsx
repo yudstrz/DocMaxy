@@ -59,11 +59,11 @@ export default function PdfToJpgPage() {
       if (allImages.length === 1) {
         setDownloadUrl(URL.createObjectURL(allImages[0].blob));
         const originalName = documents[0].file.name.replace(/\.[^/.]+$/, '');
-        setDownloadFilename(`${originalName}_DocMaxy.jpg`);
+        setDownloadFilename(`${originalName} (Converted).jpg`);
       } else {
         const zipBlob = await bundleImagesToZip(allImages);
         setDownloadUrl(URL.createObjectURL(zipBlob));
-        setDownloadFilename(`DocMaxy_PDFtoJPG_${Date.now()}.zip`);
+        setDownloadFilename(`PDF_to_JPG_${Date.now()}.zip`);
       }
 
       toast.success('Berhasil dikonversi!');
