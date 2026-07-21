@@ -7,5 +7,5 @@ pdf2docx==0.5.8
 mammoth==1.8.0
 xhtml2pdf==0.2.16
 reportlab==4.1.0
-pymupdf==1.23.26
+pymupdf==1.24.2
 pymupdf4llm==0.0.12
