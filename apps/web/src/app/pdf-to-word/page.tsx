@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { SortableGrid, PDFDocument } from '@/components/SortableGrid';
 import { generatePDFThumbnail } from '@/utils/pdf';
+import toast from 'react-hot-toast';
 
 export default function PdfToWordPage() {
   const [documents, setDocuments] = useState<PDFDocument[]>([]);
@@ -23,7 +24,7 @@ export default function PdfToWordPage() {
   };
 
   const handleConvert = async () => {
-    if (documents.length === 0) { alert('Pilih minimal 1 file PDF.'); return; }
+    if (documents.length === 0) { toast.error('Pilih minimal 1 file PDF.'); return; }
     setIsProcessing(true);
     setProgress(0);
     setDownloadUrl(null);
@@ -46,8 +47,9 @@ export default function PdfToWordPage() {
         xhr.send(formData);
       });
       setDownloadUrl(URL.createObjectURL(blob));
+      toast.success('Berhasil dikonversi!');
     } catch (e: any) {
-      alert(e.message || 'Gagal memproses file.');
+      toast.error(e.message || 'Gagal memproses file.');
     } finally {
       setIsProcessing(false);
     }

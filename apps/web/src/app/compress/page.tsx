@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { SortableGrid, PDFDocument } from '@/components/SortableGrid';
 import { generatePDFThumbnail } from '@/utils/pdf';
 import { Settings2, ArrowDownToLine, Zap } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const COMPRESSION_LEVELS = [
   { id: 'extreme', label: 'Ekstrem', desc: 'Ukuran paling kecil, kualitas lebih rendah', icon: ArrowDownToLine },
@@ -31,7 +32,7 @@ export default function CompressPage() {
   };
 
   const handleCompress = async () => {
-    if (documents.length === 0) { alert('Pilih minimal 1 file PDF.'); return; }
+    if (documents.length === 0) { toast.error('Pilih minimal 1 file PDF.'); return; }
     setIsProcessing(true);
     setProgress(0);
     setDownloadUrl(null);
@@ -55,8 +56,9 @@ export default function CompressPage() {
         xhr.send(formData);
       });
       setDownloadUrl(URL.createObjectURL(blob));
+      toast.success('File berhasil dikompres!');
     } catch (e: any) {
-      alert(e.message || 'Gagal memproses file.');
+      toast.error(e.message || 'Gagal memproses file.');
     } finally {
       setIsProcessing(false);
     }

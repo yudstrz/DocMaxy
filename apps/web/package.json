@@ -22,11 +22,13 @@
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.1.200",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hot-toast": "^2.4.1",
     "shared-types": "workspace:*",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.0.1",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

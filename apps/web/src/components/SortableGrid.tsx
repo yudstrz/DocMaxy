@@ -46,6 +46,8 @@ export function SortableGrid({ items, setItems, onAddFiles, accept = "applicatio
     })
   );
 
+  const [isDragActive, setIsDragActive] = useState(false);
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -66,8 +68,43 @@ export function SortableGrid({ items, setItems, onAddFiles, accept = "applicatio
     setItems((items) => [...items].sort((a, b) => a.file.name.localeCompare(b.file.name)));
   };
 
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      // Create a new FileList-like array
+      const files = Array.from(e.dataTransfer.files).filter(file => 
+        accept === '*/*' || accept.split(',').some(type => {
+          const t = type.trim();
+          if (t.startsWith('.')) return file.name.toLowerCase().endsWith(t);
+          return file.type.match(new RegExp(t.replace('*', '.*')));
+        })
+      );
+      if (files.length > 0) {
+        onAddFiles(files);
+      }
+    }
+  };
+
   return (
-    <div className="w-full max-w-5xl mx-auto p-6 bg-slate-50/50 rounded-2xl border border-slate-100">
+    <div 
+      className={`w-full max-w-5xl mx-auto p-6 rounded-2xl border-2 transition-all duration-200 ${
+        isDragActive ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-100 bg-slate-50/50'
+      }`}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-slate-800">Atur Urutan Dokumen</h2>
         <div className="flex gap-2">
@@ -76,12 +113,13 @@ export function SortableGrid({ items, setItems, onAddFiles, accept = "applicatio
             className="flex items-center gap-2 px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium"
           >
             <ArrowDownAZ size={18} />
-            Sort A-Z
+            <span className="hidden sm:inline">Sort A-Z</span>
           </button>
           
-          <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium cursor-pointer">
+          <label className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm text-sm font-medium cursor-pointer">
             <Plus size={18} />
-            {uploadLabel}
+            <span className="hidden sm:inline">{uploadLabel}</span>
+            <span className="sm:hidden">Tambah</span>
             <input 
               type="file" 
               multiple 
@@ -117,9 +155,12 @@ export function SortableGrid({ items, setItems, onAddFiles, accept = "applicatio
       </DndContext>
       
       {items.length === 0 && (
-        <div className="w-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl bg-white text-slate-400">
-          <p>Belum ada file yang dipilih.</p>
-          <p className="text-sm mt-1">Klik "Tambah File" untuk memulai.</p>
+        <div className="w-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl bg-white text-slate-400 pointer-events-none">
+          <div className="bg-slate-50 p-4 rounded-full mb-4">
+            <Plus size={32} className="text-slate-400" />
+          </div>
+          <p className="text-lg font-medium text-slate-600">Belum ada file yang dipilih</p>
+          <p className="text-sm mt-2 text-slate-400">Tarik dan lepas file di sini, atau klik tombol di atas.</p>
         </div>
       )}
     </div>

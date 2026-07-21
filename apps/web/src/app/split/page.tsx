@@ -6,6 +6,7 @@ import { generatePDFThumbnail } from '@/utils/pdf';
 import { PDFDocument } from 'pdf-lib';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import toast from 'react-hot-toast';
 
 export default function SplitPage() {
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
@@ -28,7 +29,7 @@ export default function SplitPage() {
   };
 
   const handleSplit = async () => {
-    if (documents.length === 0) { alert('Pilih file PDF.'); return; }
+    if (documents.length === 0) { toast.error('Pilih file PDF.'); return; }
     setIsProcessing(true);
     setDownloadUrl(null);
     try {
@@ -64,8 +65,9 @@ export default function SplitPage() {
         setResultMode('zip');
         setDownloadUrl(URL.createObjectURL(zipBlob));
       }
+      toast.success('Berhasil dipisahkan!');
     } catch (e: any) {
-      alert(e.message || 'Gagal memproses file.');
+      toast.error(e.message || 'Gagal memproses file.');
     } finally {
       setIsProcessing(false);
     }

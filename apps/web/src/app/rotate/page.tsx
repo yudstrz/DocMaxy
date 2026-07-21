@@ -6,6 +6,7 @@ import { generatePDFThumbnail } from '@/utils/pdf';
 import { PDFDocument, degrees } from 'pdf-lib';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import toast from 'react-hot-toast';
 
 const ANGLES = [
   { label: '↺ 90° Kiri', value: 270 },
@@ -33,7 +34,7 @@ export default function RotatePage() {
   };
 
   const handleRotate = async () => {
-    if (documents.length === 0) { alert('Pilih minimal 1 file PDF.'); return; }
+    if (documents.length === 0) { toast.error('Pilih minimal 1 file PDF.'); return; }
     setIsProcessing(true);
     setDownloadUrl(null);
     try {
@@ -63,8 +64,9 @@ export default function RotatePage() {
         setResultMode('zip');
         setDownloadUrl(URL.createObjectURL(zipBlob));
       }
+      toast.success('Berhasil diputar!');
     } catch (e: any) {
-      alert(e.message || 'Gagal memproses file.');
+      toast.error(e.message || 'Gagal memproses file.');
     } finally {
       setIsProcessing(false);
     }

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { SortableGrid, PDFDocument } from '@/components/SortableGrid';
+import toast from 'react-hot-toast';
 
 export default function WordToPdfPage() {
   const [documents, setDocuments] = useState<PDFDocument[]>([]);
@@ -18,7 +19,7 @@ export default function WordToPdfPage() {
   };
 
   const handleConvert = async () => {
-    if (documents.length === 0) { alert('Pilih minimal 1 file Word.'); return; }
+    if (documents.length === 0) { toast.error('Pilih minimal 1 file Word.'); return; }
     setIsProcessing(true);
     setProgress(0);
     setDownloadUrl(null);
@@ -41,8 +42,9 @@ export default function WordToPdfPage() {
         xhr.send(formData);
       });
       setDownloadUrl(URL.createObjectURL(blob));
+      toast.success('Berhasil dikonversi!');
     } catch (e: any) {
-      alert(e.message || 'Gagal memproses file.');
+      toast.error(e.message || 'Gagal memproses file.');
     } finally {
       setIsProcessing(false);
     }

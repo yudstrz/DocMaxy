@@ -5,6 +5,7 @@ import { SortableGrid, PDFDocument as LocalPDFDocument } from '@/components/Sort
 import { generatePDFThumbnail } from '@/utils/pdf';
 import { PDFDocument } from 'pdf-lib';
 import { saveAs } from 'file-saver';
+import toast from 'react-hot-toast';
 
 export default function MergePage() {
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
@@ -27,7 +28,7 @@ export default function MergePage() {
 
   const handleMerge = async () => {
     if (documents.length < 2) {
-      alert('Pilih minimal 2 file PDF untuk digabungkan.');
+      toast.error('Pilih minimal 2 file PDF untuk digabungkan.');
       return;
     }
     setIsProcessing(true);
@@ -46,8 +47,9 @@ export default function MergePage() {
       const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
+      toast.success('Berhasil digabungkan!');
     } catch (e: any) {
-      alert(e.message || 'Gagal memproses file.');
+      toast.error(e.message || 'Gagal memproses file.');
     } finally {
       setIsProcessing(false);
     }

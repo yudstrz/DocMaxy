@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { SortableGrid, PDFDocument as LocalPDFDocument } from '@/components/SortableGrid';
 import { PDFDocument } from 'pdf-lib';
 import { saveAs } from 'file-saver';
+import toast from 'react-hot-toast';
 
 export default function Img2PdfPage() {
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
@@ -21,7 +22,7 @@ export default function Img2PdfPage() {
   };
 
   const handleConvert = async () => {
-    if (documents.length === 0) { alert('Pilih minimal 1 gambar.'); return; }
+    if (documents.length === 0) { toast.error('Pilih minimal 1 gambar.'); return; }
     setIsProcessing(true);
     setDownloadUrl(null);
     try {
@@ -57,8 +58,9 @@ export default function Img2PdfPage() {
       const pdfBytes = await pdfDoc.save();
       const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
       setDownloadUrl(URL.createObjectURL(blob));
+      toast.success('Berhasil diubah ke PDF!');
     } catch (e: any) {
-      alert(e.message || 'Gagal memproses file.');
+      toast.error(e.message || 'Gagal memproses file.');
     } finally {
       setIsProcessing(false);
     }
