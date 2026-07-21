@@ -33,7 +33,7 @@ export default function SplitPage() {
     setDownloadUrl(null);
     try {
       const fileBuffer = await documents[0].file.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(fileBuffer);
+      const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
       const totalPages = pdfDoc.getPageCount();
 
       if (mode === 'extract') {

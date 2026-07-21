@@ -41,7 +41,7 @@ export default function RotatePage() {
 
       for (const doc of documents) {
         const fileBuffer = await doc.file.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(fileBuffer);
+        const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
         const pages = pdfDoc.getPages();
         pages.forEach((page) => {
           const currentRotation = page.getRotation().angle;
