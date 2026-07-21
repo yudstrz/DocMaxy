@@ -44,7 +44,7 @@ export default function Img2PdfPage() {
       for (const doc of documents) {
         const fileBuffer = await doc.file.arrayBuffer();
         let image;
-        
+
         if (doc.file.type === 'image/jpeg' || doc.file.name.toLowerCase().endsWith('.jpg') || doc.file.name.toLowerCase().endsWith('.jpeg')) {
           image = await pdfDoc.embedJpg(fileBuffer);
         } else if (doc.file.type === 'image/png' || doc.file.name.toLowerCase().endsWith('.png')) {
@@ -55,7 +55,7 @@ export default function Img2PdfPage() {
         }
 
         const dims = image.scale(1);
-        
+
         let paperWidth = dims.width;
         let paperHeight = dims.height;
         const selectedSize = PAPER_SIZES[pageSize]?.dims;
@@ -66,7 +66,7 @@ export default function Img2PdfPage() {
         }
 
         const page = pdfDoc.addPage([paperWidth, paperHeight]);
-        
+
         if (!selectedSize) {
           page.drawImage(image, {
             x: 0,
@@ -81,7 +81,7 @@ export default function Img2PdfPage() {
           const drawHeight = dims.height * scaleFactor;
           const x = (paperWidth - drawWidth) / 2;
           const y = (paperHeight - drawHeight) / 2;
-          
+
           page.drawImage(image, {
             x,
             y,
@@ -129,7 +129,7 @@ export default function Img2PdfPage() {
             <div className="flex flex-col items-center justify-center gap-6">
               <div className="flex flex-col items-center w-full max-w-sm">
                 <label className="text-sm font-semibold text-slate-700 mb-2">Ukuran Kertas (PDF)</label>
-                <select 
+                <select
                   value={pageSize}
                   onChange={(e) => setPageSize(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-yellow-400 outline-none text-slate-700"
