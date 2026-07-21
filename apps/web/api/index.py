@@ -489,6 +489,217 @@ def compress_pdfs(req: CompressJobRequest):
         if output_filepath and os.path.exists(output_filepath):
             os.remove(output_filepath)
 
+class Pdf2WordJobRequest(BaseModel):
+    files: List[RotateFileItem]
+
+@app.post("/api/pdf2word")
+def pdf2word(req: Pdf2WordJobRequest):
+    if not req.files:
+        raise HTTPException(status_code=400, detail="Tidak ada file yang dipilih.")
+    tmp_dir = tempfile.gettempdir()
+    downloaded_files = []
+    output_filepath = ""
+    output_filename = ""
+    try:
+        from pdf2docx import Converter
+        results = []
+        for item in req.files:
+            local_path = os.path.join(tmp_dir, f"dl_{item.fileId}.pdf")
+            s3_client.download_file(S3_BUCKET, item.s3Key, local_path)
+            downloaded_files.append(local_path)
+            
+            out_path = os.path.join(tmp_dir, f"out_{item.fileId}.docx")
+            cv = Converter(local_path)
+            cv.convert(out_path, start=0, end=None)
+            cv.close()
+            results.append((item.filename, out_path))
+            downloaded_files.append(out_path)
+            
+        if len(results) == 1:
+            base, ext = os.path.splitext(results[0][0])
+            output_filename = f"{base}.docx"
+            output_filepath = results[0][1]
+        else:
+            output_filename = f"converted_{uuid.uuid4().hex[:8]}.zip"
+            output_filepath = os.path.join(tmp_dir, output_filename)
+            with zipfile.ZipFile(output_filepath, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for fname, docpath in results:
+                    base, ext = os.path.splitext(fname)
+                    zipf.write(docpath, arcname=f"{base}.docx")
+                    
+        output_s3_key = f"processed/pdf2word/{output_filename}"
+        s3_client.upload_file(output_filepath, S3_BUCKET, output_s3_key)
+        
+        presigned_url = s3_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": S3_BUCKET, "Key": output_s3_key, "ResponseContentDisposition": f"attachment; filename={output_filename}"},
+            ExpiresIn=3600
+        )
+        return {"success": True, "downloadUrl": presigned_url, "filename": output_filename}
+    except Exception as e:
+        print(f"pdf2word error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        for f in downloaded_files:
+            if os.path.exists(f): os.remove(f)
+        if output_filepath and os.path.exists(output_filepath) and len(req.files) > 1:
+            os.remove(output_filepath)
+
+class Word2PdfJobRequest(BaseModel):
+    files: List[RotateFileItem]
+
+@app.post("/api/word2pdf")
+def word2pdf(req: Word2PdfJobRequest):
+    if not req.files:
+        raise HTTPException(status_code=400, detail="Tidak ada file yang dipilih.")
+    tmp_dir = tempfile.gettempdir()
+    downloaded_files = []
+    output_filepath = ""
+    output_filename = ""
+    try:
+        import mammoth
+        from xhtml2pdf import pisa
+        results = []
+        for item in req.files:
+            local_path = os.path.join(tmp_dir, f"dl_{item.fileId}.docx")
+            s3_client.download_file(S3_BUCKET, item.s3Key, local_path)
+            downloaded_files.append(local_path)
+            
+            with open(local_path, "rb") as docx_file:
+                result = mammoth.convert_to_html(docx_file)
+                html = result.value
+                
+            out_path = os.path.join(tmp_dir, f"out_{item.fileId}.pdf")
+            with open(out_path, "wb") as pdf_file:
+                styled_html = f"<html><head><style>body{{font-family: Helvetica, sans-serif; padding: 20px; line-height: 1.5;}} table{{width:100%; border-collapse:collapse;}} td,th{{border:1px solid #000; padding:5px;}}</style></head><body>{html}</body></html>"
+                pisa.CreatePDF(styled_html, dest=pdf_file)
+                
+            results.append((item.filename, out_path))
+            downloaded_files.append(out_path)
+            
+        if len(results) == 1:
+            base, ext = os.path.splitext(results[0][0])
+            output_filename = f"{base}.pdf"
+            output_filepath = results[0][1]
+        else:
+            output_filename = f"converted_{uuid.uuid4().hex[:8]}.zip"
+            output_filepath = os.path.join(tmp_dir, output_filename)
+            with zipfile.ZipFile(output_filepath, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for fname, pdfpath in results:
+                    base, ext = os.path.splitext(fname)
+                    zipf.write(pdfpath, arcname=f"{base}.pdf")
+                    
+        output_s3_key = f"processed/word2pdf/{output_filename}"
+        s3_client.upload_file(output_filepath, S3_BUCKET, output_s3_key)
+        
+        presigned_url = s3_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": S3_BUCKET, "Key": output_s3_key, "ResponseContentDisposition": f"attachment; filename={output_filename}"},
+            ExpiresIn=3600
+        )
+        return {"success": True, "downloadUrl": presigned_url, "filename": output_filename}
+    except Exception as e:
+        print(f"word2pdf error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        for f in downloaded_files:
+            if os.path.exists(f): os.remove(f)
+        if output_filepath and os.path.exists(output_filepath) and len(req.files) > 1:
+            os.remove(output_filepath)
+
+class EditPdfJobRequest(BaseModel):
+    files: List[RotateFileItem]
+    text: str
+    x: int = 100
+    y: int = 100
+    fontSize: int = 24
+    color: str = "#000000"
+
+@app.post("/api/edit-pdf")
+def edit_pdf(req: EditPdfJobRequest):
+    if not req.files:
+        raise HTTPException(status_code=400, detail="Tidak ada file yang dipilih.")
+    if not req.text:
+        raise HTTPException(status_code=400, detail="Teks anotasi tidak boleh kosong.")
+    tmp_dir = tempfile.gettempdir()
+    downloaded_files = []
+    output_filepath = ""
+    output_filename = ""
+    try:
+        from pypdf import PdfReader, PdfWriter
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.colors import HexColor
+        import io
+        
+        results = []
+        for item in req.files:
+            local_path = os.path.join(tmp_dir, f"dl_{item.fileId}.pdf")
+            s3_client.download_file(S3_BUCKET, item.s3Key, local_path)
+            downloaded_files.append(local_path)
+            
+            existing_pdf = PdfReader(local_path)
+            writer = PdfWriter()
+            
+            for page in existing_pdf.pages:
+                page_width = float(page.mediabox.width)
+                page_height = float(page.mediabox.height)
+                
+                packet = io.BytesIO()
+                can = canvas.Canvas(packet, pagesize=(page_width, page_height))
+                
+                try:
+                    can.setFillColor(HexColor(req.color))
+                except:
+                    can.setFillColor(HexColor("#000000"))
+                    
+                can.setFont("Helvetica", req.fontSize)
+                can.drawString(req.x, req.y, req.text)
+                can.save()
+                packet.seek(0)
+                
+                new_pdf = PdfReader(packet)
+                text_page = new_pdf.pages[0]
+                
+                page.merge_page(text_page)
+                writer.add_page(page)
+                
+            out_path = os.path.join(tmp_dir, f"out_{item.fileId}.pdf")
+            with open(out_path, "wb") as out_pdf:
+                writer.write(out_pdf)
+                
+            results.append((item.filename, out_path))
+            downloaded_files.append(out_path)
+            
+        if len(results) == 1:
+            base, ext = os.path.splitext(results[0][0])
+            output_filename = f"{base}_edited.pdf"
+            output_filepath = results[0][1]
+        else:
+            output_filename = f"edited_{uuid.uuid4().hex[:8]}.zip"
+            output_filepath = os.path.join(tmp_dir, output_filename)
+            with zipfile.ZipFile(output_filepath, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for fname, pdfpath in results:
+                    base, ext = os.path.splitext(fname)
+                    zipf.write(pdfpath, arcname=f"{base}_edited.pdf")
+                    
+        output_s3_key = f"processed/editpdf/{output_filename}"
+        s3_client.upload_file(output_filepath, S3_BUCKET, output_s3_key)
+        
+        presigned_url = s3_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": S3_BUCKET, "Key": output_s3_key, "ResponseContentDisposition": f"attachment; filename={output_filename}"},
+            ExpiresIn=3600
+        )
+        return {"success": True, "downloadUrl": presigned_url, "filename": output_filename}
+    except Exception as e:
+        print(f"edit pdf error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        for f in downloaded_files:
+            if os.path.exists(f): os.remove(f)
+        if output_filepath and os.path.exists(output_filepath) and len(req.files) > 1:
+            os.remove(output_filepath)
+
 
 @app.post("/s3/multipart")
 def create_multipart(req: CreateMultipartRequest):

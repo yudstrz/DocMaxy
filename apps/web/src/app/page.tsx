@@ -32,29 +32,29 @@ const TOOLS = [
   {
     title: "PDF ke Word",
     description: "Konversi file PDF dengan mudah menjadi dokumen DOC dan DOCX yang mudah diedit. Dokumen WORD hasil konversi hampir 100 akurat.",
-    href: "#",
+    href: "/pdf-to-word",
     icon: FileText,
     iconColor: "text-blue-500",
     iconBg: "bg-blue-100",
-    status: "coming-soon"
+    status: "ready"
   },
   {
     title: "Word ke PDF",
     description: "Buat file DOC dan DOCX mudah dibaca dengan dikonversi ke PDF.",
-    href: "#",
+    href: "/word-to-pdf",
     icon: FileCode2,
     iconColor: "text-blue-500",
     iconBg: "bg-blue-100",
-    status: "coming-soon"
+    status: "ready"
   },
   {
     title: "Edit PDF",
     description: "Tambahkan teks, gambar, bentuk, atau anotasi manual ke dokumen PDF. Edit ukuran, font, dan warna konten yang ditambahkan.",
-    href: "#",
+    href: "/edit-pdf",
     icon: Edit3,
     iconColor: "text-purple-500",
     iconBg: "bg-purple-100",
-    status: "coming-soon"
+    status: "ready"
   },
   {
     title: "Putar PDF",
