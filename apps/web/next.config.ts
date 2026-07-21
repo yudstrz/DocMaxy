@@ -8,14 +8,14 @@ const nextConfig: NextConfig = {
         destination:
           process.env.NODE_ENV === "development"
             ? "http://127.0.0.1:8000/api/:path*"
-            : "/api/",
+            : "/api/:path*",
       },
       {
         source: "/s3/:path*",
         destination:
           process.env.NODE_ENV === "development"
             ? "http://127.0.0.1:8000/s3/:path*"
-            : "/api/",
+            : "/api/s3/:path*",
       },
     ];
   },
