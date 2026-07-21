@@ -3,17 +3,9 @@
 import React, { useState } from 'react';
 import { SortableGrid, PDFDocument } from '@/components/SortableGrid';
 import { generatePDFThumbnail } from '@/utils/pdf';
-import { Settings2, ArrowDownToLine, Zap } from 'lucide-react';
 
-const COMPRESSION_LEVELS = [
-  { id: 'extreme', label: 'Ekstrem', desc: 'Ukuran paling kecil, kualitas lebih rendah', icon: ArrowDownToLine },
-  { id: 'recommended', label: 'Rekomendasi', desc: 'Keseimbangan terbaik', icon: Zap },
-  { id: 'less', label: 'Rendah', desc: 'Ukuran lebih besar, kualitas asli', icon: Settings2 },
-];
-
-export default function CompressPage() {
+export default function PdfToJpgPage() {
   const [documents, setDocuments] = useState<PDFDocument[]>([]);
-  const [level, setLevel] = useState('recommended');
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -30,7 +22,7 @@ export default function CompressPage() {
     }
   };
 
-  const handleCompress = async () => {
+  const handleConvert = async () => {
     if (documents.length === 0) { alert('Pilih minimal 1 file PDF.'); return; }
     setIsProcessing(true);
     setProgress(0);
@@ -38,7 +30,6 @@ export default function CompressPage() {
     try {
       const formData = new FormData();
       documents.forEach((doc) => formData.append('files', doc.file));
-      formData.append('level', level);
 
       const xhr = new XMLHttpRequest();
       const blob = await new Promise<Blob>((resolve, reject) => {
@@ -51,7 +42,7 @@ export default function CompressPage() {
           else reject(new Error(`Server error ${xhr.status}`));
         };
         xhr.onerror = () => reject(new Error('Network error'));
-        xhr.open('POST', '/api/compress');
+        xhr.open('POST', '/api/pdf2jpg');
         xhr.send(formData);
       });
       setDownloadUrl(URL.createObjectURL(blob));
@@ -66,37 +57,25 @@ export default function CompressPage() {
     <div className="min-h-screen bg-slate-50">
       <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight sm:text-5xl">Kompres PDF</h1>
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight sm:text-5xl">PDF ke JPG</h1>
           <p className="mt-4 max-w-2xl text-xl text-slate-500 mx-auto">
-            Perkecil ukuran file PDF sesuai dengan kebutuhan Anda.
+            Ekstrak semua halaman dari dokumen PDF Anda menjadi gambar JPG berkualitas tinggi.
           </p>
         </div>
 
         <SortableGrid items={documents} setItems={setDocuments} onAddFiles={handleAddFiles} />
 
         {documents.length > 0 && !downloadUrl && (
-          <div className="max-w-4xl mx-auto mt-12 bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
-            <h3 className="text-xl font-bold text-slate-800 mb-6 text-center">Tingkat Kompresi</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              {COMPRESSION_LEVELS.map((lvl) => (
-                <button key={lvl.id} onClick={() => setLevel(lvl.id)}
-                  className={`p-6 rounded-2xl border-2 text-left transition-all ${level === lvl.id ? 'border-indigo-600 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300'}`}>
-                  <lvl.icon className={`w-8 h-8 mb-4 ${level === lvl.id ? 'text-indigo-600' : 'text-slate-400'}`} />
-                  <h4 className={`font-bold text-lg mb-1 ${level === lvl.id ? 'text-indigo-900' : 'text-slate-700'}`}>{lvl.label}</h4>
-                  <p className="text-sm text-slate-500">{lvl.desc}</p>
-                </button>
-              ))}
-            </div>
-
+          <div className="max-w-3xl mx-auto mt-12 bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
             {isProcessing && (
               <div className="w-full bg-slate-200 rounded-full h-3 mb-6">
-                <div className="bg-indigo-500 h-3 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                <div className="bg-yellow-500 h-3 rounded-full transition-all" style={{ width: `${progress}%` }} />
               </div>
             )}
-            <div className="flex justify-center border-t border-slate-100 pt-6">
-              <button onClick={handleCompress} disabled={isProcessing}
-                className="px-12 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50">
-                {isProcessing ? 'Mengunggah & Memproses...' : 'Kompres PDF Sekarang'}
+            <div className="flex justify-center">
+              <button onClick={handleConvert} disabled={isProcessing}
+                className="px-12 py-4 bg-yellow-600 hover:bg-yellow-700 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50">
+                {isProcessing ? 'Mengunggah & Memproses...' : 'Ubah ke JPG Sekarang'}
               </button>
             </div>
           </div>
@@ -104,13 +83,13 @@ export default function CompressPage() {
 
         {downloadUrl && (
           <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center">
-            <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Dikompres!</h3>
-            <a href={downloadUrl} download={documents.length > 1 ? 'compressed.zip' : 'compressed.pdf'}
+            <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Dikonversi!</h3>
+            <a href={downloadUrl} download={documents.length > 1 ? 'pdf_to_jpg.zip' : 'converted.zip'}
               className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
-              Unduh Hasil
+              Unduh Hasil JPG
             </a>
             <button onClick={() => { setDownloadUrl(null); setDocuments([]); }}
-              className="mt-4 text-green-700 text-sm underline">Kompres file lainnya</button>
+              className="mt-4 text-green-700 text-sm underline">Konversi file lainnya</button>
           </div>
         )}
       </main>

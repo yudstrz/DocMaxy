@@ -45,7 +45,7 @@ export default function RotatePage() {
         const pages = pdfDoc.getPages();
         pages.forEach((page) => {
           const currentRotation = page.getRotation().angle;
-          page.setRotation(degrees(currentRotation + angle));
+          page.setRotation(degrees((currentRotation + angle) % 360));
         });
         const pdfBytes = await pdfDoc.save();
         const baseName = doc.file.name.replace(/\.[^/.]+$/, "");

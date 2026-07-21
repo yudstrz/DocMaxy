@@ -142,20 +142,33 @@ async def rotate_pdfs(files: List[UploadFile] = File(...), angle: int = Form(90)
 # COMPRESS PDF
 # ─────────────────────────────────────────────
 @app.post("/api/compress")
-async def compress_pdfs(files: List[UploadFile] = File(...)):
+async def compress_pdfs(
+    files: List[UploadFile] = File(...),
+    level: str = Form("recommended")
+):
     try:
-        from pypdf import PdfWriter, PdfReader
+        import fitz
         results = []
         for f in files:
             content = await f.read()
-            reader = PdfReader(io.BytesIO(content))
-            writer = PdfWriter()
-            for page in reader.pages:
-                writer.add_page(page)
-            for page in writer.pages:
-                page.compress_content_streams()
+            doc = fitz.open(stream=content, filetype="pdf")
+            
+            # Tentukan pengaturan kompresi PyMuPDF
+            # garbage=4: buang objek tak terpakai & duplikat
+            # deflate=True: kompresi stream
+            # clean=True: bersihkan content stream
+            garbage = 3
+            clean = True
+            if level == "extreme":
+                garbage = 4
+            elif level == "less":
+                garbage = 1
+                clean = False
+                
             buf = io.BytesIO()
-            writer.write(buf)
+            doc.save(buf, garbage=garbage, deflate=True, clean=clean)
+            doc.close()
+            
             results.append((f.filename or "compressed.pdf", buf.getvalue()))
 
         if len(results) == 1:
@@ -319,62 +332,30 @@ async def word2pdf(files: List[UploadFile] = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ─────────────────────────────────────────────
-# EDIT PDF (Add text annotation)
+# PDF TO JPG
 # ─────────────────────────────────────────────
-@app.post("/api/edit-pdf")
-async def edit_pdf(
-    files: List[UploadFile] = File(...),
-    text: str = Form(...),
-    x: int = Form(100),
-    y: int = Form(100),
-    font_size: int = Form(24),
-    color: str = Form("#000000")
-):
+@app.post("/api/pdf2jpg")
+async def pdf2jpg(files: List[UploadFile] = File(...)):
     if not files:
         raise HTTPException(status_code=400, detail="Tidak ada file yang dipilih.")
-    if not text:
-        raise HTTPException(status_code=400, detail="Teks anotasi tidak boleh kosong.")
     try:
-        from pypdf import PdfReader, PdfWriter
-        from reportlab.pdfgen import canvas
-        from reportlab.lib.colors import HexColor
-
+        import fitz
         results = []
         for f in files:
             content = await f.read()
-            reader = PdfReader(io.BytesIO(content))
-            writer = PdfWriter()
-
-            for page in reader.pages:
-                page_width = float(page.mediabox.width)
-                page_height = float(page.mediabox.height)
-
-                packet = io.BytesIO()
-                can = canvas.Canvas(packet, pagesize=(page_width, page_height))
-                try:
-                    can.setFillColor(HexColor(color))
-                except Exception:
-                    can.setFillColor(HexColor("#000000"))
-                can.setFont("Helvetica", font_size)
-                can.drawString(x, y, text)
-                can.save()
-                packet.seek(0)
-
-                from pypdf import PdfReader as PR
-                text_page = PR(packet).pages[0]
-                page.merge_page(text_page)
-                writer.add_page(page)
-
-            buf = io.BytesIO()
-            writer.write(buf)
-            base = os.path.splitext(f.filename or "edited")[0]
-            results.append((f"{base}_edited.pdf", buf.getvalue()))
+            doc = fitz.open(stream=content, filetype="pdf")
+            for i in range(len(doc)):
+                page = doc[i]
+                pix = page.get_pixmap(dpi=150)
+                img_data = pix.tobytes("jpeg")
+                base = os.path.splitext(f.filename or "page")[0]
+                results.append((f"{base}_page_{i+1}.jpg", img_data))
 
         if len(results) == 1:
             fname, data = results[0]
             return Response(
                 content=data,
-                media_type="application/pdf",
+                media_type="image/jpeg",
                 headers={"Content-Disposition": f"attachment; filename={fname}"}
             )
         else:
@@ -386,7 +367,8 @@ async def edit_pdf(
             return Response(
                 content=zip_buf.read(),
                 media_type="application/zip",
-                headers={"Content-Disposition": "attachment; filename=edited_pdfs.zip"}
+                headers={"Content-Disposition": "attachment; filename=pdf_to_jpg.zip"}
             )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

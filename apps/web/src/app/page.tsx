@@ -47,15 +47,7 @@ const TOOLS = [
     iconBg: "bg-blue-100",
     status: "ready"
   },
-  {
-    title: "Edit PDF",
-    description: "Tambahkan teks, gambar, bentuk, atau anotasi manual ke dokumen PDF. Edit ukuran, font, dan warna konten yang ditambahkan.",
-    href: "/edit-pdf",
-    icon: Edit3,
-    iconColor: "text-purple-500",
-    iconBg: "bg-purple-100",
-    status: "ready"
-  },
+
   {
     title: "Putar PDF",
     description: "Putar PDF sesuai kebutuhan. Anda bahkan dapat memutar beberapa PDF sekaligus!",
