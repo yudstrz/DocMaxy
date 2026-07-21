@@ -1,18 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import { SortableGrid, PDFDocument } from '@/components/SortableGrid';
+import { SortableGrid, PDFDocument as LocalPDFDocument } from '@/components/SortableGrid';
 import { generatePDFThumbnail } from '@/utils/pdf';
+import { PDFDocument } from 'pdf-lib';
+import { saveAs } from 'file-saver';
 
 export default function MergePage() {
-  const [documents, setDocuments] = useState<PDFDocument[]>([]);
+  const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
 
   const handleAddFiles = async (files: FileList | File[]) => {
     setDownloadUrl(null);
-    const newDocs: PDFDocument[] = Array.from(files).map((file) => ({
+    const newDocs: LocalPDFDocument[] = Array.from(files).map((file) => ({
       id: crypto.randomUUID(),
       file,
       thumbnail: null,
@@ -30,27 +31,19 @@ export default function MergePage() {
       return;
     }
     setIsProcessing(true);
-    setProgress(0);
     setDownloadUrl(null);
     try {
-      const formData = new FormData();
-      documents.forEach((doc) => formData.append('files', doc.file));
+      const mergedPdf = await PDFDocument.create();
 
-      const xhr = new XMLHttpRequest();
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        xhr.responseType = 'blob';
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as Blob);
-          else reject(new Error(`Server error ${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error('Network error'));
-        xhr.open('POST', '/api/merge');
-        xhr.send(formData);
-      });
+      for (const doc of documents) {
+        const fileBuffer = await doc.file.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(fileBuffer);
+        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+        copiedPages.forEach((page) => mergedPdf.addPage(page));
+      }
 
+      const pdfBytes = await mergedPdf.save();
+      const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
     } catch (e: any) {
@@ -68,7 +61,7 @@ export default function MergePage() {
             Gabungkan PDF
           </h1>
           <p className="mt-4 max-w-2xl text-xl text-slate-500 mx-auto">
-            Atur urutan file PDF Anda, lalu gabungkan menjadi satu dokumen.
+            Atur urutan file PDF Anda, lalu gabungkan menjadi satu dokumen. Pemrosesan dilakukan aman di browser Anda tanpa upload!
           </p>
         </div>
 
@@ -80,11 +73,10 @@ export default function MergePage() {
               {isProcessing && (
                 <div className="w-full max-w-md">
                   <div className="flex justify-between text-sm font-medium text-slate-700 mb-2">
-                    <span>{progress < 100 ? `Mengunggah...` : `Memproses...`}</span>
-                    <span>{progress < 100 ? `${progress}%` : ''}</span>
+                    <span>Memproses di perangkat...</span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-3">
-                    <div className="bg-orange-500 h-3 rounded-full transition-all duration-300" style={{ width: `${progress < 100 ? progress : 100}%` }} />
+                    <div className="bg-orange-500 h-3 rounded-full animate-pulse" style={{ width: '100%' }} />
                   </div>
                 </div>
               )}
@@ -102,10 +94,10 @@ export default function MergePage() {
         {downloadUrl && (
           <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center animate-in fade-in zoom-in duration-300">
             <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Digabungkan!</h3>
-            <a href={downloadUrl} download="merged.pdf"
+            <button onClick={() => saveAs(downloadUrl, "merged.pdf")}
               className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md transition-all">
               Unduh PDF Gabungan
-            </a>
+            </button>
             <button onClick={() => { setDownloadUrl(null); setDocuments([]); }}
               className="mt-4 text-green-700 hover:text-green-900 text-sm underline">
               Gabungkan file lainnya

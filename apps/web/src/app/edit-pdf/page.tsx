@@ -1,11 +1,24 @@
 'use client';
 
 import React, { useState } from 'react';
-import { SortableGrid, PDFDocument } from '@/components/SortableGrid';
+import { SortableGrid, PDFDocument as LocalPDFDocument } from '@/components/SortableGrid';
 import { generatePDFThumbnail } from '@/utils/pdf';
+import { PDFDocument, rgb } from 'pdf-lib';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+
+// Helper to convert hex to RGB 0-1
+function hexToRgb(hex: string) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16) / 255,
+    g: parseInt(result[2], 16) / 255,
+    b: parseInt(result[3], 16) / 255
+  } : { r: 0, g: 0, b: 0 };
+}
 
 export default function EditPdfPage() {
-  const [documents, setDocuments] = useState<PDFDocument[]>([]);
+  const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [text, setText] = useState('');
   const [xPos, setXPos] = useState(100);
   const [yPos, setYPos] = useState(100);
@@ -13,11 +26,11 @@ export default function EditPdfPage() {
   const [color, setColor] = useState('#000000');
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [resultMode, setResultMode] = useState<'zip' | 'single'>('zip');
 
   const handleAddFiles = async (files: FileList | File[]) => {
     setDownloadUrl(null);
-    const newDocs: PDFDocument[] = Array.from(files).map((file) => ({
+    const newDocs: LocalPDFDocument[] = Array.from(files).map((file) => ({
       id: crypto.randomUUID(), file, thumbnail: null,
     }));
     setDocuments((prev) => [...prev, ...newDocs]);
@@ -31,32 +44,41 @@ export default function EditPdfPage() {
     if (documents.length === 0) { alert('Pilih minimal 1 file PDF.'); return; }
     if (!text) { alert('Masukkan teks anotasi.'); return; }
     setIsProcessing(true);
-    setProgress(0);
     setDownloadUrl(null);
     try {
-      const formData = new FormData();
-      documents.forEach((doc) => formData.append('files', doc.file));
-      formData.append('text', text);
-      formData.append('x', String(xPos));
-      formData.append('y', String(yPos));
-      formData.append('font_size', String(fontSize));
-      formData.append('color', color);
+      const results: { name: string, bytes: Uint8Array }[] = [];
+      const textColor = hexToRgb(color);
 
-      const xhr = new XMLHttpRequest();
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        xhr.responseType = 'blob';
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as Blob);
-          else reject(new Error(`Server error ${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error('Network error'));
-        xhr.open('POST', '/api/edit-pdf');
-        xhr.send(formData);
-      });
-      setDownloadUrl(URL.createObjectURL(blob));
+      for (const doc of documents) {
+        const fileBuffer = await doc.file.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(fileBuffer);
+        const pages = pdfDoc.getPages();
+        
+        for (const page of pages) {
+          page.drawText(text, {
+            x: xPos,
+            y: yPos,
+            size: fontSize,
+            color: rgb(textColor.r, textColor.g, textColor.b),
+          });
+        }
+        
+        const pdfBytes = await pdfDoc.save();
+        const baseName = doc.file.name.replace(/\.[^/.]+$/, "");
+        results.push({ name: `${baseName}_edited.pdf`, bytes: pdfBytes });
+      }
+
+      if (results.length === 1) {
+        const blob = new Blob([results[0].bytes as any], { type: 'application/pdf' });
+        setResultMode('single');
+        setDownloadUrl(URL.createObjectURL(blob));
+      } else {
+        const zip = new JSZip();
+        results.forEach((res) => zip.file(res.name, res.bytes));
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        setResultMode('zip');
+        setDownloadUrl(URL.createObjectURL(zipBlob));
+      }
     } catch (e: any) {
       alert(e.message || 'Gagal memproses file.');
     } finally {
@@ -70,7 +92,7 @@ export default function EditPdfPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight sm:text-5xl">Edit PDF</h1>
           <p className="mt-4 max-w-2xl text-xl text-slate-500 mx-auto">
-            Tambahkan teks/watermark pada dokumen PDF Anda.
+            Tambahkan teks/watermark pada dokumen PDF Anda. (Aman di perangkat Anda)
           </p>
         </div>
 
@@ -113,7 +135,7 @@ export default function EditPdfPage() {
 
             {isProcessing && (
               <div className="w-full bg-slate-200 rounded-full h-3 mb-6">
-                <div className="bg-purple-500 h-3 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                <div className="bg-purple-500 h-3 rounded-full animate-pulse" style={{ width: '100%' }} />
               </div>
             )}
             <div className="flex justify-center border-t border-slate-100 pt-6">
@@ -128,10 +150,10 @@ export default function EditPdfPage() {
         {downloadUrl && (
           <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center">
             <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 PDF Berhasil Diedit!</h3>
-            <a href={downloadUrl} download={documents.length > 1 ? 'edited_pdfs.zip' : 'edited.pdf'}
+            <button onClick={() => saveAs(downloadUrl, resultMode === 'zip' ? 'edited_pdfs.zip' : documents[0].file.name.replace(/\.[^/.]+$/, "_edited.pdf"))}
               className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
               Unduh Hasil PDF
-            </a>
+            </button>
             <button onClick={() => { setDownloadUrl(null); setDocuments([]); }}
               className="mt-4 text-green-700 text-sm underline">Edit file lainnya</button>
           </div>

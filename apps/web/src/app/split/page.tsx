@@ -1,20 +1,23 @@
 'use client';
 
 import React, { useState } from 'react';
-import { SortableGrid, PDFDocument } from '@/components/SortableGrid';
+import { SortableGrid, PDFDocument as LocalPDFDocument } from '@/components/SortableGrid';
 import { generatePDFThumbnail } from '@/utils/pdf';
+import { PDFDocument } from 'pdf-lib';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 export default function SplitPage() {
-  const [documents, setDocuments] = useState<PDFDocument[]>([]);
+  const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [mode, setMode] = useState<'all' | 'extract'>('all');
   const [pages, setPages] = useState('');
-  const [progress, setProgress] = useState(0);
+  const [resultMode, setResultMode] = useState<'zip' | 'single'>('zip');
 
   const handleAddFiles = async (files: FileList | File[]) => {
     setDownloadUrl(null);
-    const newDocs: PDFDocument[] = Array.from(files).slice(0, 1).map((file) => ({
+    const newDocs: LocalPDFDocument[] = Array.from(files).slice(0, 1).map((file) => ({
       id: crypto.randomUUID(), file, thumbnail: null,
     }));
     setDocuments(newDocs);
@@ -26,32 +29,41 @@ export default function SplitPage() {
 
   const handleSplit = async () => {
     if (documents.length === 0) { alert('Pilih file PDF.'); return; }
-
     setIsProcessing(true);
-    setProgress(0);
     setDownloadUrl(null);
     try {
-      const formData = new FormData();
-      formData.append('file', documents[0].file);
-      formData.append('mode', mode);
-      if (mode === 'extract') formData.append('pages', pages);
+      const fileBuffer = await documents[0].file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(fileBuffer);
+      const totalPages = pdfDoc.getPageCount();
 
-      const xhr = new XMLHttpRequest();
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        xhr.responseType = 'blob';
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as Blob);
-          else reject(new Error(`Server error ${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error('Network error'));
-        xhr.open('POST', '/api/split');
-        xhr.send(formData);
-      });
+      if (mode === 'extract') {
+        const pageIndices = pages.split(',').map(p => parseInt(p.trim()) - 1).filter(p => !isNaN(p) && p >= 0 && p < totalPages);
+        if (pageIndices.length === 0) throw new Error("Nomor halaman tidak valid.");
 
-      setDownloadUrl(URL.createObjectURL(blob));
+        const newPdf = await PDFDocument.create();
+        const copiedPages = await newPdf.copyPages(pdfDoc, pageIndices);
+        copiedPages.forEach((page) => newPdf.addPage(page));
+
+        const pdfBytes = await newPdf.save();
+        const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
+        setResultMode('single');
+        setDownloadUrl(URL.createObjectURL(blob));
+      } else {
+        const zip = new JSZip();
+        const baseName = documents[0].file.name.replace(/\.[^/.]+$/, "");
+
+        for (let i = 0; i < totalPages; i++) {
+          const newPdf = await PDFDocument.create();
+          const [copiedPage] = await newPdf.copyPages(pdfDoc, [i]);
+          newPdf.addPage(copiedPage);
+          const pdfBytes = await newPdf.save();
+          zip.file(`${baseName}_page${i + 1}.pdf`, pdfBytes);
+        }
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        setResultMode('zip');
+        setDownloadUrl(URL.createObjectURL(zipBlob));
+      }
     } catch (e: any) {
       alert(e.message || 'Gagal memproses file.');
     } finally {
@@ -65,7 +77,7 @@ export default function SplitPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight sm:text-5xl">Pisahkan PDF</h1>
           <p className="mt-4 max-w-2xl text-xl text-slate-500 mx-auto">
-            Pisahkan satu halaman atau semuanya menjadi file PDF terpisah.
+            Pisahkan satu halaman atau semuanya menjadi file PDF terpisah. (Aman di perangkat Anda)
           </p>
         </div>
 
@@ -88,13 +100,13 @@ export default function SplitPage() {
             )}
             {isProcessing && (
               <div className="w-full bg-slate-200 rounded-full h-3 mb-4">
-                <div className="bg-orange-500 h-3 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                <div className="bg-orange-500 h-3 rounded-full animate-pulse" style={{ width: '100%' }} />
               </div>
             )}
             <div className="flex justify-center">
               <button onClick={handleSplit} disabled={isProcessing}
                 className="px-12 py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50">
-                {isProcessing ? 'Memproses...' : 'Pisahkan PDF'}
+                {isProcessing ? 'Memproses di perangkat...' : 'Pisahkan PDF'}
               </button>
             </div>
           </div>
@@ -103,10 +115,10 @@ export default function SplitPage() {
         {downloadUrl && (
           <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center">
             <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Dipisahkan!</h3>
-            <a href={downloadUrl} download={mode === 'all' ? 'split_pages.zip' : 'extracted.pdf'}
+            <button onClick={() => saveAs(downloadUrl, resultMode === 'zip' ? 'split_pages.zip' : 'extracted.pdf')}
               className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
               Unduh Hasil
-            </a>
+            </button>
             <button onClick={() => { setDownloadUrl(null); setDocuments([]); }}
               className="mt-4 text-green-700 text-sm underline">Pisahkan file lainnya</button>
           </div>
