@@ -8,3 +8,4 @@ mammoth==1.8.0
 xhtml2pdf==0.2.16
 reportlab==4.1.0
 pymupdf==1.23.26
+pymupdf4llm==0.0.12

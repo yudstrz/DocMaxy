@@ -372,3 +372,48 @@ async def pdf2jpg(files: List[UploadFile] = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ─────────────────────────────────────────────
+# PDF TO MARKDOWN
+# ─────────────────────────────────────────────
+@app.post("/api/pdf2md")
+async def pdf2md(files: List[UploadFile] = File(...)):
+    if not files:
+        raise HTTPException(status_code=400, detail="Tidak ada file yang dipilih.")
+    try:
+        import pymupdf4llm
+        results = []
+        tmp_dir = tempfile.gettempdir()
+        for f in files:
+            content = await f.read()
+            tmp_pdf = os.path.join(tmp_dir, f"tmp_{uuid.uuid4().hex}.pdf")
+            with open(tmp_pdf, "wb") as fp:
+                fp.write(content)
+            
+            try:
+                md_text = pymupdf4llm.to_markdown(tmp_pdf)
+                base = os.path.splitext(f.filename or "document")[0]
+                results.append((f"{base}.md", md_text.encode('utf-8')))
+            finally:
+                if os.path.exists(tmp_pdf):
+                    os.remove(tmp_pdf)
+
+        if len(results) == 1:
+            fname, data = results[0]
+            return Response(
+                content=data,
+                media_type="text/markdown",
+                headers={"Content-Disposition": f"attachment; filename={fname}"}
+            )
+        else:
+            zip_buf = io.BytesIO()
+            with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for fname, data in results:
+                    zipf.writestr(fname, data)
+            zip_buf.seek(0)
+            return Response(
+                content=zip_buf.read(),
+                media_type="application/zip",
+                headers={"Content-Disposition": "attachment; filename=pdf_to_md.zip"}
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -75,6 +75,15 @@ const TOOLS = [
     iconBg: "bg-yellow-100",
     status: "ready"
   },
+  {
+    title: "PDF ke Markdown",
+    description: "Ekstrak teks, heading, dan tabel dari dokumen PDF ke format Markdown (.md) yang terstruktur rapi.",
+    href: "/pdf-to-markdown",
+    icon: FileText,
+    iconColor: "text-emerald-600",
+    iconBg: "bg-emerald-100",
+    status: "ready"
+  },
 ];
 
 export default function Home() {
