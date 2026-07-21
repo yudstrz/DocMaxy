@@ -17,7 +17,15 @@ export default function WordToPdfPage() {
   const [uppy] = useState(() => new Uppy({
     autoProceed: false,
     allowMultipleUploadBatches: true,
-    restrictions: { allowedFileTypes: ['.docx'] }
+    restrictions: { 
+      allowedFileTypes: [
+        '.docx', 
+        '.doc', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+        'application/msword', 
+        'application/x-zip-compressed'
+      ] 
+    }
   }).use(AwsS3, {
     shouldUseMultipart: true,
     limit: 4,
@@ -87,13 +95,17 @@ export default function WordToPdfPage() {
     try {
       documents.forEach(doc => {
         if (!uppy.getFile(doc.id)) {
-           uppy.addFile({
-             id: doc.id,
-             name: doc.file.name,
-             type: doc.file.type,
-             data: doc.file,
-             meta: { docId: doc.id } 
-           });
+           try {
+             uppy.addFile({
+               id: doc.id,
+               name: doc.file.name,
+               type: doc.file.type,
+               data: doc.file,
+               meta: { docId: doc.id } 
+             });
+           } catch (err) {
+             console.error("Uppy addFile error:", err);
+           }
         }
       });
       

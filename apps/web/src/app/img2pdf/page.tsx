@@ -17,7 +17,7 @@ export default function Img2PdfPage() {
   const [uppy] = useState(() => new Uppy({
     autoProceed: false,
     allowMultipleUploadBatches: true,
-    restrictions: { allowedFileTypes: ['.jpg', '.jpeg', '.png'] }
+    restrictions: { allowedFileTypes: ['.jpg', '.jpeg', '.png', 'image/jpeg', 'image/png'] }
   }).use(AwsS3, {
     shouldUseMultipart: true,
     limit: 4,
