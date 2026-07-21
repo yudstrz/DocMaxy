@@ -6,11 +6,23 @@ import { PDFDocument, PageSizes } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import toast from 'react-hot-toast';
 
+const PAPER_SIZES: Record<string, { label: string, dims: [number, number] | null }> = {
+  'original': { label: 'Original (Sesuai Gambar)', dims: null },
+  'a3': { label: 'A3 (297 x 420 mm)', dims: PageSizes.A3 },
+  'a4': { label: 'A4 (Standar, 210 x 297 mm)', dims: PageSizes.A4 },
+  'a5': { label: 'A5 (148 x 210 mm)', dims: PageSizes.A5 },
+  'b4': { label: 'B4 (250 x 353 mm)', dims: PageSizes.B4 },
+  'b5': { label: 'B5 (176 x 250 mm)', dims: PageSizes.B5 },
+  'letter': { label: 'Letter (US, 8.5 x 11 in)', dims: PageSizes.Letter },
+  'legal': { label: 'Legal (US, 8.5 x 14 in)', dims: PageSizes.Legal },
+  'tabloid': { label: 'Tabloid (11 x 17 in)', dims: PageSizes.Tabloid },
+};
+
 export default function Img2PdfPage() {
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [pageSize, setPageSize] = useState<'original' | 'a4' | 'letter'>('original');
+  const [pageSize, setPageSize] = useState<string>('original');
 
   const handleAddFiles = async (files: FileList | File[]) => {
     setDownloadUrl(null);
@@ -46,18 +58,16 @@ export default function Img2PdfPage() {
         
         let paperWidth = dims.width;
         let paperHeight = dims.height;
+        const selectedSize = PAPER_SIZES[pageSize]?.dims;
 
-        if (pageSize === 'a4') {
-          paperWidth = PageSizes.A4[0];
-          paperHeight = PageSizes.A4[1];
-        } else if (pageSize === 'letter') {
-          paperWidth = PageSizes.Letter[0];
-          paperHeight = PageSizes.Letter[1];
+        if (selectedSize) {
+          paperWidth = selectedSize[0];
+          paperHeight = selectedSize[1];
         }
 
         const page = pdfDoc.addPage([paperWidth, paperHeight]);
         
-        if (pageSize === 'original') {
+        if (!selectedSize) {
           page.drawImage(image, {
             x: 0,
             y: 0,
@@ -121,12 +131,12 @@ export default function Img2PdfPage() {
                 <label className="text-sm font-semibold text-slate-700 mb-2">Ukuran Kertas (PDF)</label>
                 <select 
                   value={pageSize}
-                  onChange={(e) => setPageSize(e.target.value as any)}
+                  onChange={(e) => setPageSize(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-yellow-400 outline-none text-slate-700"
                 >
-                  <option value="original">Original (Sesuai Gambar)</option>
-                  <option value="a4">A4 (Standar Dokumen)</option>
-                  <option value="letter">Letter (US)</option>
+                  {Object.entries(PAPER_SIZES).map(([key, config]) => (
+                    <option key={key} value={key}>{config.label}</option>
+                  ))}
                 </select>
               </div>
 
