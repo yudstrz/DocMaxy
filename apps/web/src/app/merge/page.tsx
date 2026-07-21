@@ -87,7 +87,7 @@ export default function MergePage() {
               <button
                 onClick={handleMerge}
                 disabled={isProcessing}
-                className="px-12 py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-12 py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isProcessing ? 'Memproses...' : `Gabungkan ${documents.length} File`}
               </button>
@@ -99,7 +99,7 @@ export default function MergePage() {
           <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center animate-in fade-in zoom-in duration-300">
             <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Digabungkan!</h3>
             <button onClick={() => saveAs(downloadUrl, downloadFilename)}
-              className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md transition-all">
+              className="w-full sm:w-auto px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md transition-all">
               Unduh PDF Gabungan
             </button>
             <button onClick={() => { setDownloadUrl(null); setDocuments([]); }}

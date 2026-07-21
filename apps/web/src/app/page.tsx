@@ -88,10 +88,10 @@ const TOOLS = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-slate-50 py-20 px-4">
+    <main className="min-h-screen bg-slate-50 py-12 md:py-20 px-4">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-extrabold tracking-tight text-slate-900 mb-4">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-4">
             DocMaxy PDF Toolkit
           </h1>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">

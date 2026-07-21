@@ -116,7 +116,7 @@ export default function PdfToJpgPage() {
               )}
 
               <button onClick={handleConvert} disabled={isProcessing}
-                className="px-12 py-4 bg-yellow-600 hover:bg-yellow-700 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50">
+                className="w-full sm:w-auto px-12 py-4 bg-yellow-600 hover:bg-yellow-700 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50">
                 {isProcessing ? 'Memproses di perangkat...' : 'Ubah ke JPG Sekarang'}
               </button>
             </div>
@@ -127,7 +127,7 @@ export default function PdfToJpgPage() {
           <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center">
             <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Dikonversi!</h3>
             <button onClick={() => saveAs(downloadUrl, downloadFilename)}
-              className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
+              className="w-full sm:w-auto px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
               Unduh Hasil JPG
             </button>
             <button onClick={() => { setDownloadUrl(null); setDocuments([]); }}

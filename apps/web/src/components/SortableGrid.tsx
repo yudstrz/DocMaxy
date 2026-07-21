@@ -110,13 +110,13 @@ export function SortableGrid({ items, setItems, onAddFiles, accept = "applicatio
         <div className="flex gap-2">
           <button
             onClick={handleSortAZ}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium"
           >
             <ArrowDownAZ size={18} />
             <span className="hidden sm:inline">Sort A-Z</span>
           </button>
           
-          <label className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm text-sm font-medium cursor-pointer">
+          <label className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm text-sm font-medium cursor-pointer">
             <Plus size={18} />
             <span className="hidden sm:inline">{uploadLabel}</span>
             <span className="sm:hidden">Tambah</span>

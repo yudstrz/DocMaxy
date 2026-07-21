@@ -136,7 +136,7 @@ export default function CompressPage() {
             )}
             <div className="flex justify-center border-t border-slate-100 pt-6">
               <button onClick={handleCompress} disabled={isProcessing}
-                className="px-12 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50">
+                className="w-full sm:w-auto px-12 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50">
                 {isProcessing ? 'Memproses di perangkat...' : 'Kompres PDF Sekarang'}
               </button>
             </div>
@@ -152,7 +152,7 @@ export default function CompressPage() {
               </p>
             )}
             <button onClick={() => saveAs(downloadUrl, downloadFilename)}
-              className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
+              className="w-full sm:w-auto px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
               Unduh Hasil
             </button>
             <button onClick={() => { setDownloadUrl(null); setDocuments([]); setOriginalSize(0); setCompressedSize(0); }}

@@ -54,7 +54,7 @@ export function SortableItem({ id, file, thumbnail, index, onRemove }: SortableI
           e.stopPropagation();
           onRemove(id);
         }}
-        className="absolute top-2 left-2 p-1.5 bg-white/80 backdrop-blur rounded-full text-slate-500 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 z-10"
+        className="absolute top-2 left-2 p-1.5 bg-white/80 backdrop-blur rounded-full text-slate-500 hover:text-red-500 hover:bg-red-50 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 shadow-sm z-10"
       >
         <X size={16} />
       </button>
