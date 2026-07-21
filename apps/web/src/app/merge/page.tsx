@@ -6,7 +6,7 @@ import { generatePDFThumbnail } from '@/utils/pdf';
 import Uppy from '@uppy/core';
 import AwsS3 from '@uppy/aws-s3';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'; // Target FastAPI backend
+const API_BASE = ''; // Uses relative path and Next.js rewrites
 export default function MergePage() {
   const [documents, setDocuments] = useState<PDFDocument[]>([]);
   const [isUploading, setIsUploading] = useState(false);
