@@ -30,6 +30,10 @@ s3_client = boto3.client(
     region_name=os.getenv("AWS_REGION", "us-east-1"),
 )
 
+@app.get("/")
+def read_root():
+    return {"status": "ok", "service": "DocMaxy PDF Toolkit API", "version": "1.0.0"}
+
 class CreateMultipartRequest(BaseModel):
     filename: str
     type: str
