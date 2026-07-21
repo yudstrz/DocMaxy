@@ -30,9 +30,11 @@ interface SortableGridProps {
   items: PDFDocument[];
   setItems: React.Dispatch<React.SetStateAction<PDFDocument[]>>;
   onAddFiles: (files: FileList | File[]) => void;
+  accept?: string;
+  uploadLabel?: string;
 }
 
-export function SortableGrid({ items, setItems, onAddFiles }: SortableGridProps) {
+export function SortableGrid({ items, setItems, onAddFiles, accept = "application/pdf", uploadLabel = "Tambah File" }: SortableGridProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -79,11 +81,11 @@ export function SortableGrid({ items, setItems, onAddFiles }: SortableGridProps)
           
           <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium cursor-pointer">
             <Plus size={18} />
-            Tambah File
+            {uploadLabel}
             <input 
               type="file" 
               multiple 
-              accept="application/pdf" 
+              accept={accept} 
               className="hidden" 
               onChange={(e) => {
                 if (e.target.files) onAddFiles(e.target.files);

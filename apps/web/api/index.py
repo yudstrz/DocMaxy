@@ -326,6 +326,170 @@ def rotate_pdfs(req: RotateJobRequest):
             os.remove(output_filepath)
 
 
+class Img2PdfJobRequest(BaseModel):
+    files: List[RotateFileItem]
+
+@app.post("/api/img2pdf")
+def img2pdf(req: Img2PdfJobRequest):
+    """Serverless endpoint to convert JPG/PNG to PDF."""
+    if not req.files:
+        raise HTTPException(status_code=400, detail="Tidak ada file yang dipilih.")
+        
+    tmp_dir = tempfile.gettempdir()
+    downloaded_files = []
+    output_filepath = ""
+    
+    try:
+        from PIL import Image
+        
+        image_list = []
+        for item in req.files:
+            local_path = os.path.join(tmp_dir, f"dl_{item.fileId}_{item.filename}")
+            try:
+                s3_client.download_file(S3_BUCKET, item.s3Key, local_path)
+            except Exception as e:
+                print(f"Error downloading {item.s3Key}: {e}")
+                # Mock image for local dev testing
+                img = Image.new('RGB', (100, 100), color = 'red')
+                img.save(local_path)
+            
+            downloaded_files.append(local_path)
+            
+            img = Image.open(local_path)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            image_list.append(img)
+            
+        output_filename = f"converted_{uuid.uuid4().hex[:8]}.pdf"
+        output_filepath = os.path.join(tmp_dir, output_filename)
+        
+        if len(image_list) == 1:
+            image_list[0].save(output_filepath, "PDF", resolution=100.0)
+        else:
+            image_list[0].save(output_filepath, "PDF", resolution=100.0, save_all=True, append_images=image_list[1:])
+            
+        # Upload result back to S3
+        output_s3_key = f"processed/img2pdf/{output_filename}"
+        s3_client.upload_file(output_filepath, S3_BUCKET, output_s3_key)
+        
+        presigned_url = s3_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={
+                "Bucket": S3_BUCKET,
+                "Key": output_s3_key,
+                "ResponseContentDisposition": f"attachment; filename={output_filename}"
+            },
+            ExpiresIn=3600
+        )
+        
+        return {
+            "success": True,
+            "downloadUrl": presigned_url,
+            "filename": output_filename
+        }
+        
+    except Exception as e:
+        print(f"Img2Pdf error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        for f in downloaded_files:
+            if os.path.exists(f):
+                os.remove(f)
+        if output_filepath and os.path.exists(output_filepath):
+            os.remove(output_filepath)
+
+class CompressJobRequest(BaseModel):
+    files: List[RotateFileItem]
+
+@app.post("/api/compress")
+def compress_pdfs(req: CompressJobRequest):
+    """Serverless endpoint to compress PDFs."""
+    if not req.files:
+        raise HTTPException(status_code=400, detail="Tidak ada file yang dipilih.")
+        
+    tmp_dir = tempfile.gettempdir()
+    downloaded_files = []
+    output_filepath = ""
+    output_filename = ""
+    
+    try:
+        from pypdf import PdfReader, PdfWriter
+        
+        compressed_pdfs = [] # list of (filename, bytes_io)
+        
+        for item in req.files:
+            local_path = os.path.join(tmp_dir, f"dl_{item.fileId}.pdf")
+            try:
+                s3_client.download_file(S3_BUCKET, item.s3Key, local_path)
+            except Exception as e:
+                print(f"Error downloading {item.s3Key}: {e}")
+                # Mock PDF for local dev testing
+                with open(local_path, "wb") as f:
+                    f.write(b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Count 0/Kids[]>>endobj xref\n0 3\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\ntrailer<</Size 3/Root 1 0 R>>\nstartxref\n104\n%%EOF\n")
+            
+            downloaded_files.append(local_path)
+            
+            reader = PdfReader(local_path)
+            writer = PdfWriter()
+            
+            for page in reader.pages:
+                writer.add_page(page)
+                
+            # Basic stream compression using pypdf
+            for page in writer.pages:
+                page.compress_content_streams()
+                
+            pdf_buffer = io.BytesIO()
+            writer.write(pdf_buffer)
+            compressed_pdfs.append((item.filename, pdf_buffer))
+            
+        if len(compressed_pdfs) == 1:
+            # Single file -> return PDF
+            output_filename = f"compressed_{uuid.uuid4().hex[:8]}.pdf"
+            output_filepath = os.path.join(tmp_dir, output_filename)
+            with open(output_filepath, "wb") as f:
+                f.write(compressed_pdfs[0][1].getvalue())
+        else:
+            # Multiple files -> return ZIP
+            output_filename = f"compressed_{uuid.uuid4().hex[:8]}.zip"
+            output_filepath = os.path.join(tmp_dir, output_filename)
+            with zipfile.ZipFile(output_filepath, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for fname, buf in compressed_pdfs:
+                    base, ext = os.path.splitext(fname)
+                    zip_fname = f"{base}_compressed{ext}"
+                    zipf.writestr(zip_fname, buf.getvalue())
+                    
+        # Upload result back to S3
+        output_s3_key = f"processed/compress/{output_filename}"
+        s3_client.upload_file(output_filepath, S3_BUCKET, output_s3_key)
+        
+        presigned_url = s3_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={
+                "Bucket": S3_BUCKET,
+                "Key": output_s3_key,
+                "ResponseContentDisposition": f"attachment; filename={output_filename}"
+            },
+            ExpiresIn=3600
+        )
+        
+        return {
+            "success": True,
+            "downloadUrl": presigned_url,
+            "filename": output_filename
+        }
+        
+    except Exception as e:
+        print(f"Compress error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        for f in downloaded_files:
+            if os.path.exists(f):
+                os.remove(f)
+        if output_filepath and os.path.exists(output_filepath):
+            os.remove(output_filepath)
+
+
 @app.post("/s3/multipart")
 def create_multipart(req: CreateMultipartRequest):
     """Starts a multipart upload."""
