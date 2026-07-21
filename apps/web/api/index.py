@@ -380,22 +380,37 @@ async def pdf2md(files: List[UploadFile] = File(...)):
     if not files:
         raise HTTPException(status_code=400, detail="Tidak ada file yang dipilih.")
     try:
-        import pymupdf4llm
+        from pdf2docx import Converter
+        import mammoth
+        
         results = []
         tmp_dir = tempfile.gettempdir()
         for f in files:
             content = await f.read()
             tmp_pdf = os.path.join(tmp_dir, f"tmp_{uuid.uuid4().hex}.pdf")
+            tmp_docx = os.path.join(tmp_dir, f"tmp_{uuid.uuid4().hex}.docx")
+            
             with open(tmp_pdf, "wb") as fp:
                 fp.write(content)
             
             try:
-                md_text = pymupdf4llm.to_markdown(tmp_pdf)
+                # 1. Convert PDF to DOCX
+                cv = Converter(tmp_pdf)
+                cv.convert(tmp_docx, start=0, end=None)
+                cv.close()
+                
+                # 2. Convert DOCX to Markdown
+                with open(tmp_docx, "rb") as docx_file:
+                    md_result = mammoth.convert_to_markdown(docx_file)
+                    md_text = md_result.value
+                    
                 base = os.path.splitext(f.filename or "document")[0]
                 results.append((f"{base}.md", md_text.encode('utf-8')))
             finally:
                 if os.path.exists(tmp_pdf):
                     os.remove(tmp_pdf)
+                if os.path.exists(tmp_docx):
+                    os.remove(tmp_docx)
 
         if len(results) == 1:
             fname, data = results[0]
@@ -417,3 +432,4 @@ async def pdf2md(files: List[UploadFile] = File(...)):
             )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
