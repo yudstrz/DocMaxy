@@ -22,6 +22,7 @@ export default function Img2PdfPage() {
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadFilename, setDownloadFilename] = useState<string>('');
   const [pageSize, setPageSize] = useState<string>('original');
 
   const handleAddFiles = async (files: FileList | File[]) => {
@@ -98,6 +99,12 @@ export default function Img2PdfPage() {
       const pdfBytes = await pdfDoc.save();
       const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
       setDownloadUrl(URL.createObjectURL(blob));
+      if (documents.length === 1) {
+        const originalName = documents[0].file.name.replace(/\.[^/.]+$/, '');
+        setDownloadFilename(`${originalName}_DocMaxy.pdf`);
+      } else {
+        setDownloadFilename(`DocMaxy_ImageToPDF_${Date.now()}.pdf`);
+      }
       toast.success('Berhasil diubah ke PDF!');
     } catch (e: any) {
       toast.error(e.message || 'Gagal memproses file.');
@@ -151,7 +158,7 @@ export default function Img2PdfPage() {
         {downloadUrl && (
           <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center">
             <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Dikonversi!</h3>
-            <button onClick={() => saveAs(downloadUrl, 'converted.pdf')}
+            <button onClick={() => saveAs(downloadUrl, downloadFilename)}
               className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
               Unduh PDF Anda
             </button>

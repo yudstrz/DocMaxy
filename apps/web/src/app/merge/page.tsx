@@ -11,6 +11,7 @@ export default function MergePage() {
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadFilename, setDownloadFilename] = useState<string>('');
 
   const handleAddFiles = async (files: FileList | File[]) => {
     setDownloadUrl(null);
@@ -47,6 +48,7 @@ export default function MergePage() {
       const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
+      setDownloadFilename(`DocMaxy_Merged_${Date.now()}.pdf`);
       toast.success('Berhasil digabungkan!');
     } catch (e: any) {
       toast.error(e.message || 'Gagal memproses file.');
@@ -96,7 +98,7 @@ export default function MergePage() {
         {downloadUrl && (
           <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center animate-in fade-in zoom-in duration-300">
             <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Digabungkan!</h3>
-            <button onClick={() => saveAs(downloadUrl, "merged.pdf")}
+            <button onClick={() => saveAs(downloadUrl, downloadFilename)}
               className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md transition-all">
               Unduh PDF Gabungan
             </button>

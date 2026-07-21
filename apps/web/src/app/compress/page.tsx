@@ -20,6 +20,7 @@ export default function CompressPage() {
   const [level, setLevel] = useState('recommended');
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadFilename, setDownloadFilename] = useState<string>('');
   const [originalSize, setOriginalSize] = useState(0);
   const [compressedSize, setCompressedSize] = useState(0);
 
@@ -77,11 +78,14 @@ export default function CompressPage() {
       if (results.length === 1) {
         const blob = new Blob([results[0].bytes as BlobPart], { type: 'application/pdf' });
         setDownloadUrl(URL.createObjectURL(blob));
+        const originalName = documents[0].file.name.replace(/\.[^/.]+$/, '');
+        setDownloadFilename(`${originalName}_DocMaxy.pdf`);
       } else {
         const zip = new JSZip();
         results.forEach((r) => zip.file(r.name, r.bytes));
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         setDownloadUrl(URL.createObjectURL(zipBlob));
+        setDownloadFilename(`DocMaxy_Compress_${Date.now()}.zip`);
       }
       toast.success('File berhasil dikompres!');
     } catch (e: any) {
@@ -147,7 +151,7 @@ export default function CompressPage() {
                 {formatSize(originalSize)} → {formatSize(compressedSize)} (hemat {reductionPercent}%)
               </p>
             )}
-            <button onClick={() => saveAs(downloadUrl, documents.length > 1 ? 'compressed.zip' : 'compressed.pdf')}
+            <button onClick={() => saveAs(downloadUrl, downloadFilename)}
               className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
               Unduh Hasil
             </button>
