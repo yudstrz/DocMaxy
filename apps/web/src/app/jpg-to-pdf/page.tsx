@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { SortableGrid, PDFDocument as LocalPDFDocument } from '@/components/SortableGrid';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PageSizes } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import toast from 'react-hot-toast';
 
@@ -10,6 +10,7 @@ export default function Img2PdfPage() {
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState<'original' | 'a4' | 'letter'>('original');
 
   const handleAddFiles = async (files: FileList | File[]) => {
     setDownloadUrl(null);
@@ -42,13 +43,42 @@ export default function Img2PdfPage() {
         }
 
         const dims = image.scale(1);
-        const page = pdfDoc.addPage([dims.width, dims.height]);
-        page.drawImage(image, {
-          x: 0,
-          y: 0,
-          width: dims.width,
-          height: dims.height,
-        });
+        
+        let paperWidth = dims.width;
+        let paperHeight = dims.height;
+
+        if (pageSize === 'a4') {
+          paperWidth = PageSizes.A4[0];
+          paperHeight = PageSizes.A4[1];
+        } else if (pageSize === 'letter') {
+          paperWidth = PageSizes.Letter[0];
+          paperHeight = PageSizes.Letter[1];
+        }
+
+        const page = pdfDoc.addPage([paperWidth, paperHeight]);
+        
+        if (pageSize === 'original') {
+          page.drawImage(image, {
+            x: 0,
+            y: 0,
+            width: dims.width,
+            height: dims.height,
+          });
+        } else {
+          // Scale to fit the page and center
+          const scaleFactor = Math.min(paperWidth / dims.width, paperHeight / dims.height);
+          const drawWidth = dims.width * scaleFactor;
+          const drawHeight = dims.height * scaleFactor;
+          const x = (paperWidth - drawWidth) / 2;
+          const y = (paperHeight - drawHeight) / 2;
+          
+          page.drawImage(image, {
+            x,
+            y,
+            width: drawWidth,
+            height: drawHeight,
+          });
+        }
       }
 
       if (pdfDoc.getPageCount() === 0) {
@@ -86,7 +116,20 @@ export default function Img2PdfPage() {
                 <div className="bg-yellow-500 h-3 rounded-full animate-pulse" style={{ width: '100%' }} />
               </div>
             )}
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center justify-center gap-6">
+              <div className="flex flex-col items-center w-full max-w-sm">
+                <label className="text-sm font-semibold text-slate-700 mb-2">Ukuran Kertas (PDF)</label>
+                <select 
+                  value={pageSize}
+                  onChange={(e) => setPageSize(e.target.value as any)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-yellow-400 outline-none text-slate-700"
+                >
+                  <option value="original">Original (Sesuai Gambar)</option>
+                  <option value="a4">A4 (Standar Dokumen)</option>
+                  <option value="letter">Letter (US)</option>
+                </select>
+              </div>
+
               <button onClick={handleConvert} disabled={isProcessing}
                 className="px-12 py-4 bg-yellow-500 hover:bg-yellow-600 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50">
                 {isProcessing ? 'Mengonversi di perangkat...' : 'Ubah ke PDF Sekarang'}
