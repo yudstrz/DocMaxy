@@ -66,6 +66,59 @@ async function canvasToJpegBytes(canvas: HTMLCanvasElement, quality: number): Pr
 }
 
 /**
+ * Compress a single PDF by re-rendering each page to JPEG via Canvas,
+ * then building a brand-new PDF from those images.
+ * Works on files 200 MB+ — memory released after each page.
+ */
+async function compressPDF(
+  file: File,
+  scale: number,
+  quality: number,
+  onProgress?: (page: number, total: number, phase?: string) => void
+): Promise<Uint8Array> {
+  const pdfjsLib = await import('pdfjs-dist');
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const srcPdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const totalPages = srcPdf.numPages;
+  const outDoc = await PDFDocument.create();
+
+  for (let i = 1; i <= totalPages; i++) {
+    await yieldToBrowser();
+
+    const page = await srcPdf.getPage(i);
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D context not available');
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    const bytes = await canvasToJpegBytes(canvas, quality);
+
+    // Free canvas before embedding
+    canvas.width = 0;
+    canvas.height = 0;
+
+    const jpgImage = await outDoc.embedJpg(bytes);
+    const origViewport = page.getViewport({ scale: 1.0 });
+    const pdfPage = outDoc.addPage([origViewport.width, origViewport.height]);
+    pdfPage.drawImage(jpgImage, { x: 0, y: 0, width: origViewport.width, height: origViewport.height });
+
+    onProgress?.(i, totalPages);
+  }
+
+  return outDoc.save();
+}
+
+/**
  * Estimate scale and quality dynamically based on target ratio to achieve target size in 1 pass.
  */
 function calculateParamsForTargetRatio(ratio: number): { scale: number; quality: number } {
