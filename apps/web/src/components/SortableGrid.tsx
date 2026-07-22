@@ -19,6 +19,7 @@ import {
 import { SortableItem } from './SortableItem';
 import { generatePDFThumbnail } from '@/utils/pdf';
 import { ArrowDownAZ, Plus } from 'lucide-react';
+import { DocumentPreviewModal } from './DocumentPreviewModal';
 
 export interface PDFDocument {
   id: string;
@@ -50,6 +51,7 @@ export function SortableGrid({ items, setItems, onAddFiles, accept = "applicatio
   );
 
   const [isDragActive, setIsDragActive] = useState(false);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -151,6 +153,7 @@ export function SortableGrid({ items, setItems, onAddFiles, accept = "applicatio
                 thumbnail={item.thumbnail}
                 index={index}
                 onRemove={handleRemove}
+                onPreview={(file) => setPreviewFile(file)}
                 pages={item.pages}
                 showPageInput={showPageInput}
                 onPageInputChange={onPageInputChange}
@@ -168,6 +171,14 @@ export function SortableGrid({ items, setItems, onAddFiles, accept = "applicatio
           <p className="text-lg font-medium text-slate-600">Belum ada file yang dipilih</p>
           <p className="text-sm mt-2 text-slate-400">Tarik dan lepas file di sini, atau klik tombol di atas.</p>
         </div>
+      )}
+
+      {/* Document Preview Modal */}
+      {previewFile && (
+        <DocumentPreviewModal
+          file={previewFile}
+          onClose={() => setPreviewFile(null)}
+        />
       )}
     </div>
   );

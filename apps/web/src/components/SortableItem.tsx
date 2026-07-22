@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { X, RotateCw } from 'lucide-react';
+import { X, Eye } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -15,12 +15,13 @@ interface SortableItemProps {
   thumbnail: string | null;
   index: number;
   onRemove: (id: string) => void;
+  onPreview?: (file: File) => void;
   pages?: string;
   showPageInput?: boolean;
   onPageInputChange?: (id: string, value: string) => void;
 }
 
-export function SortableItem({ id, file, thumbnail, index, onRemove, pages = '', showPageInput, onPageInputChange }: SortableItemProps) {
+export function SortableItem({ id, file, thumbnail, index, onRemove, onPreview, pages = '', showPageInput, onPageInputChange }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -57,17 +58,49 @@ export function SortableItem({ id, file, thumbnail, index, onRemove, pages = '',
           e.stopPropagation();
           onRemove(id);
         }}
+        title="Hapus Dokumen"
         className="absolute top-2 left-2 p-1.5 bg-white/80 backdrop-blur rounded-full text-slate-500 hover:text-red-500 hover:bg-red-50 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 shadow-sm z-10"
       >
         <X size={16} />
       </button>
 
+      {/* Preview Button */}
+      {onPreview && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onPreview(file);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          title="Pratinjau Dokumen"
+          className="absolute top-2 right-2 p-1.5 bg-blue-600/90 text-white backdrop-blur rounded-full hover:bg-blue-700 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 shadow-md z-10"
+        >
+          <Eye size={15} />
+        </button>
+      )}
+
       {/* Thumbnail */}
-      <div className="w-full aspect-[1/1.414] bg-slate-50 rounded-lg overflow-hidden border border-slate-100 flex items-center justify-center relative">
+      <div 
+        className="w-full aspect-[1/1.414] bg-slate-50 rounded-lg overflow-hidden border border-slate-100 flex items-center justify-center relative cursor-pointer group/thumb"
+        onClick={(e) => {
+          if (onPreview) {
+            e.stopPropagation();
+            onPreview(file);
+          }
+        }}
+      >
         {thumbnail ? (
           <img src={thumbnail} alt={file.name} className="w-full h-full object-cover pointer-events-none" />
         ) : (
           <div className="animate-pulse bg-slate-200 w-full h-full"></div>
+        )}
+        
+        {/* Hover overlay hint */}
+        {onPreview && (
+          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white backdrop-blur-[2px]">
+            <Eye size={22} className="text-white drop-shadow" />
+            <span className="text-[10px] font-bold tracking-wider uppercase bg-slate-900/80 px-2 py-0.5 rounded-full border border-white/20">Pratinjau</span>
+          </div>
         )}
       </div>
 
