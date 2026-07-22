@@ -217,7 +217,8 @@ async function renderPageToCanvas(page: any, scale: number): Promise<HTMLCanvasE
 
 // ── OCR a rendered canvas using Tesseract.js ──────────────────────────────────
 async function ocrCanvas(canvas: HTMLCanvasElement, lang: string): Promise<string> {
-  const Tesseract = await import('tesseract.js');
+  // @ts-ignore
+  const Tesseract = (await import('tesseract.js')).default || (await import('tesseract.js'));
   const result = await Tesseract.recognize(canvas, lang, { logger: () => {} });
   return result.data.text ?? '';
 }
