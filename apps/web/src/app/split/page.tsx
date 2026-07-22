@@ -8,9 +8,12 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import toast from 'react-hot-toast';
 
+const yieldToBrowser = () => new Promise<void>((r) => setTimeout(r, 0));
+
 export default function SplitPage() {
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState<{ page: number; total: number } | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadFilename, setDownloadFilename] = useState<string>('');
   const [mode, setMode] = useState<'all' | 'extract'>('all');
@@ -31,10 +34,17 @@ export default function SplitPage() {
 
   const handleSplit = async () => {
     if (documents.length === 0) { toast.error('Pilih file PDF.'); return; }
+
+    const fileMB = documents[0].file.size / 1048576;
+    if (fileMB > 300)
+      toast(`File besar (${fileMB.toFixed(0)} MB) — proses mungkin beberapa menit, jangan tutup tab.`, { duration: 8000, icon: '⏳' });
+
     setIsProcessing(true);
     setDownloadUrl(null);
+    setProgress(null);
     try {
       const fileBuffer = await documents[0].file.arrayBuffer();
+      await yieldToBrowser();
       const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
       const totalPages = pdfDoc.getPageCount();
 
@@ -57,6 +67,10 @@ export default function SplitPage() {
         const baseName = documents[0].file.name.replace(/\.[^/.]+$/, "");
 
         for (let i = 0; i < totalPages; i++) {
+          setProgress({ page: i + 1, total: totalPages });
+          // Yield every page to prevent UI freeze
+          if (i % 5 === 0) await yieldToBrowser();
+
           const newPdf = await PDFDocument.create();
           const [copiedPage] = await newPdf.copyPages(pdfDoc, [i]);
           newPdf.addPage(copiedPage);
@@ -64,6 +78,7 @@ export default function SplitPage() {
           zip.file(`${baseName}_page${i + 1}.pdf`, pdfBytes);
         }
 
+        setProgress(null);
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         setResultMode('zip');
         setDownloadUrl(URL.createObjectURL(zipBlob));
@@ -74,8 +89,10 @@ export default function SplitPage() {
       toast.error(e.message || 'Gagal memproses file.');
     } finally {
       setIsProcessing(false);
+      setProgress(null);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -104,7 +121,21 @@ export default function SplitPage() {
                 placeholder="Contoh: 1, 3, 5"
                 className="w-full px-4 py-3 rounded-xl border border-slate-300 mb-6 focus:ring-2 focus:ring-orange-400 outline-none" />
             )}
-            {isProcessing && (
+            {isProcessing && progress && (
+              <div className="mb-4">
+                <div className="flex justify-between text-sm text-slate-500 mb-2">
+                  <span>Memisahkan halaman {progress.page} dari {progress.total}…</span>
+                  <span>{Math.round((progress.page / progress.total) * 100)}%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-3">
+                  <div
+                    className="bg-orange-500 h-3 rounded-full transition-all duration-200"
+                    style={{ width: `${Math.round((progress.page / progress.total) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {isProcessing && !progress && (
               <div className="w-full bg-slate-200 rounded-full h-3 mb-4">
                 <div className="bg-orange-500 h-3 rounded-full animate-pulse" style={{ width: '100%' }} />
               </div>

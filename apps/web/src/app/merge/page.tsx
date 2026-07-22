@@ -7,9 +7,12 @@ import { PDFDocument } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import toast from 'react-hot-toast';
 
+const yieldToBrowser = () => new Promise<void>((r) => setTimeout(r, 0));
+
 export default function MergePage() {
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadFilename, setDownloadFilename] = useState<string>('');
 
@@ -32,28 +35,51 @@ export default function MergePage() {
       toast.error('Pilih minimal 2 file PDF untuk digabungkan.');
       return;
     }
+
+    const totalMB = documents.reduce((s, d) => s + d.file.size, 0) / 1048576;
+    if (totalMB > 300)
+      toast(`Total file besar (${totalMB.toFixed(0)} MB) — proses mungkin beberapa menit, jangan tutup tab.`, { duration: 8000, icon: '⏳' });
+
     setIsProcessing(true);
     setDownloadUrl(null);
+    setProgress(null);
     try {
       const mergedPdf = await PDFDocument.create();
 
-      for (const doc of documents) {
+      for (let di = 0; di < documents.length; di++) {
+        const doc = documents[di];
+        setProgress({ current: di + 1, total: documents.length, label: `Memuat: ${doc.file.name}` });
+        await yieldToBrowser();
+
         const fileBuffer = await doc.file.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
-        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-        copiedPages.forEach((page) => mergedPdf.addPage(page));
+        const pdfDoc     = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
+        const pageCount  = pdfDoc.getPageCount();
+
+        // Copy page-by-page with periodic yield (prevents UI freeze on large PDFs)
+        const indices = pdfDoc.getPageIndices();
+        for (let pi = 0; pi < indices.length; pi++) {
+          if (pi > 0 && pi % 10 === 0) {
+            setProgress({ current: di + 1, total: documents.length, label: `${doc.file.name} — halaman ${pi}/${pageCount}` });
+            await yieldToBrowser();
+          }
+          const [copied] = await mergedPdf.copyPages(pdfDoc, [indices[pi]]);
+          mergedPdf.addPage(copied);
+        }
       }
 
+      setProgress({ current: documents.length, total: documents.length, label: 'Menyimpan PDF...' });
+      await yieldToBrowser();
+
       const pdfBytes = await mergedPdf.save();
-      const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      setDownloadUrl(url);
+      const blob     = new Blob([pdfBytes as any], { type: 'application/pdf' });
+      setDownloadUrl(URL.createObjectURL(blob));
       setDownloadFilename(`Merged_Document_${Date.now()}.pdf`);
       toast.success('Berhasil digabungkan!');
     } catch (e: any) {
       toast.error(e.message || 'Gagal memproses file.');
     } finally {
       setIsProcessing(false);
+      setProgress(null);
     }
   };
 
@@ -74,11 +100,22 @@ export default function MergePage() {
         {documents.length >= 2 && !downloadUrl && (
           <div className="max-w-3xl mx-auto mt-12 bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
             <div className="flex flex-col items-center gap-4">
-              {isProcessing && (
+              {isProcessing && progress && (
                 <div className="w-full max-w-md">
-                  <div className="flex justify-between text-sm font-medium text-slate-700 mb-2">
-                    <span>Memproses di perangkat...</span>
+                  <div className="flex justify-between text-sm text-slate-500 mb-2">
+                    <span className="truncate max-w-xs">{progress.label}</span>
+                    <span>{progress.current}/{progress.total}</span>
                   </div>
+                  <div className="w-full bg-slate-200 rounded-full h-3">
+                    <div
+                      className="bg-orange-500 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.round((progress.current / progress.total) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              {isProcessing && !progress && (
+                <div className="w-full max-w-md">
                   <div className="w-full bg-slate-200 rounded-full h-3">
                     <div className="bg-orange-500 h-3 rounded-full animate-pulse" style={{ width: '100%' }} />
                   </div>
