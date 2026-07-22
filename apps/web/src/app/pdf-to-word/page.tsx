@@ -5,50 +5,43 @@ import { SortableGrid, PDFDocument as LocalPDFDocument } from '@/components/Sort
 import { generatePDFThumbnail } from '@/utils/pdf';
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
-  Table, TableRow, TableCell, WidthType, AlignmentType,
+  Table, TableRow, TableCell, WidthType, ImageRun,
 } from 'docx';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import toast from 'react-hot-toast';
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const Y_TOL        = 3;     // pts — items within this Y = same line
-const COL_GAP_RATIO= 0.06;  // min gap / pageWidth = new column
-const CLUSTER_TOL  = 18;    // pts — nearby x = same column cluster
-const MIN_TABLE_ROWS = 2;
-const PARA_GAP_FACTOR = 1.8; // line gap * factor → paragraph break
+const Y_TOL           = 3;     // pts — items within this Y = same line
+const COL_GAP_RATIO   = 0.06;  // min gap / pageWidth = new column
+const CLUSTER_TOL     = 18;    // pts — nearby x = same column cluster
+const MIN_TABLE_ROWS  = 2;
+// A page is considered "scan" if it has fewer text chars than this
+const SCAN_PAGE_CHAR_THRESHOLD = 50;
+// Scale for canvas rendering (2x for OCR accuracy, 1.5x for image extraction)
+const OCR_SCALE    = 2.0;
+const IMAGE_SCALE  = 1.5;
 
-// ── Extended raw text item ────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 interface RawItem {
-  text: string;
-  x: number;
-  y: number;
-  fontSize: number;
-  textWidth: number;  // rendered width in PDF pts
-  bold: boolean;      // detected from font name
-  italic: boolean;    // detected from font name
-  fontName: string;
+  text: string; x: number; y: number;
+  fontSize: number; textWidth: number;
+  bold: boolean; italic: boolean; fontName: string;
 }
-
 interface TextLine {
-  y: number;
-  items: RawItem[];
-  avgFontSize: number;
+  y: number; items: RawItem[]; avgFontSize: number;
 }
-
-// ── Region types ──────────────────────────────────────────────────────────────
 interface TextRegion  { kind: 'text';  runs: { text: string; bold: boolean; italic: boolean }[]; avgFontSize: number }
 interface TableRegion { kind: 'table'; rows: string[][]; firstRowHeader: boolean }
 interface SpaceRegion { kind: 'space' }
-
 type Region = TextRegion | TableRegion | SpaceRegion;
 
 // ── Font name → bold / italic ─────────────────────────────────────────────────
-function parseFontStyle(fontName: string): { bold: boolean; italic: boolean } {
-  const f = fontName.toLowerCase();
+function parseFontStyle(f: string): { bold: boolean; italic: boolean } {
+  const fl = f.toLowerCase();
   return {
-    bold:   f.includes('bold') || f.includes('black') || f.includes('heavy') || f.includes('demi'),
-    italic: f.includes('italic') || f.includes('oblique') || f.includes('slant'),
+    bold:   fl.includes('bold') || fl.includes('black') || fl.includes('heavy') || fl.includes('demi'),
+    italic: fl.includes('italic') || fl.includes('oblique') || fl.includes('slant'),
   };
 }
 
@@ -86,133 +79,78 @@ function buildTableRow(items: RawItem[], cols: number[]): string[] {
   return cells;
 }
 
-// ── Multi-column layout detection ────────────────────────────────────────────
 function detectColumns(lines: TextLine[], pageWidth: number): TextLine[][] {
-  // Check if page has consistent multi-column layout
-  // by looking for lines that all stay in the same X-half of the page
   const midX = pageWidth / 2;
   let leftLines = 0, rightLines = 0, fullLines = 0;
-
   for (const line of lines) {
+    if (!line.items.length) continue;
     const xs = line.items.map(it => it.x);
     const minX = Math.min(...xs);
-    const maxX = Math.max(...xs.map((x, i) => x + line.items[i].textWidth));
-    const spans = maxX - minX;
-
-    if (spans < pageWidth * 0.45) {
+    const maxX = Math.max(...line.items.map((it, i) => it.x + line.items[i].textWidth));
+    if (maxX - minX < pageWidth * 0.45) {
       if (maxX < midX + 20) leftLines++;
       else if (minX > midX - 20) rightLines++;
-    } else {
-      fullLines++;
-    }
+    } else fullLines++;
   }
-
-  const hasMultiCol = (leftLines > 3 && rightLines > 3) && fullLines < leftLines * 0.5;
-
-  if (!hasMultiCol) return [lines]; // single column
-
-  // Split into left / right columns, then sort each top-to-bottom
-  const leftCol  = lines.filter(l => Math.max(...l.items.map((it, i) => it.x + l.items[i].textWidth)) < midX + 20);
-  const rightCol = lines.filter(l => Math.min(...l.items.map(it => it.x)) > midX - 20);
-  const fullWidth= lines.filter(l => !leftCol.includes(l) && !rightCol.includes(l));
-
-  return [
-    ...fullWidth.map(l => [l]),
-    leftCol.map(l => l),
-    rightCol.map(l => l),
-  ].filter(g => g.length > 0);
+  if (leftLines > 3 && rightLines > 3 && fullLines < leftLines * 0.5) {
+    const left  = lines.filter(l => Math.max(...l.items.map((it, i) => it.x + l.items[i].textWidth)) < midX + 20);
+    const right = lines.filter(l => Math.min(...l.items.map(it => it.x)) > midX - 20);
+    const full  = lines.filter(l => !left.includes(l) && !right.includes(l));
+    return [[...full.flat(), ...left.flat(), ...right.flat()]];
+  }
+  return [lines];
 }
 
-// ── Lines → Regions ───────────────────────────────────────────────────────────
 function linesToRegions(lines: TextLine[], pageWidth: number, pageAvgFs: number): Region[] {
   const regions: Region[] = [];
   const flags = lines.map(l => isTableLine(l, pageWidth));
   let i = 0;
-
   while (i < lines.length) {
     if (!flags[i]) {
-      // Group consecutive non-table lines into paragraphs
-      // A "paragraph break" = gap between lines > PARA_GAP_FACTOR * avgLineHeight
-      const lineAvgH = lines[i].avgFontSize; // in PDF points ≈ line height
-
-      // Build one text region for this line
-      const lineRuns = lines[i].items.sort((a, b) => a.x - b.x).map(it => ({
-        text: it.text,
-        bold: it.bold,
-        italic: it.italic,
-      }));
-      if (lineRuns.some(r => r.text.trim())) {
-        regions.push({ kind: 'text', runs: lineRuns, avgFontSize: lines[i].avgFontSize });
-      } else {
-        regions.push({ kind: 'space' });
-      }
+      const runs = lines[i].items.sort((a, b) => a.x - b.x).map(it => ({ text: it.text, bold: it.bold, italic: it.italic }));
+      if (runs.some(r => r.text.trim())) regions.push({ kind: 'text', runs, avgFontSize: lines[i].avgFontSize });
+      else regions.push({ kind: 'space' });
       i++;
       continue;
     }
-
-    // Table region
     let j = i;
     while (j < lines.length && flags[j]) j++;
-
     if (j - i < MIN_TABLE_ROWS) {
       for (let k = i; k < j; k++) {
-        const runs = lines[k].items.sort((a, b) => a.x - b.x).map(it => ({
-          text: it.text, bold: it.bold, italic: it.italic,
-        }));
-        if (runs.some(r => r.text.trim())) {
-          regions.push({ kind: 'text', runs, avgFontSize: lines[k].avgFontSize });
-        }
+        const runs = lines[k].items.sort((a, b) => a.x - b.x).map(it => ({ text: it.text, bold: it.bold, italic: it.italic }));
+        if (runs.some(r => r.text.trim())) regions.push({ kind: 'text', runs, avgFontSize: lines[k].avgFontSize });
       }
       i = j;
       continue;
     }
-
     const tableLines = lines.slice(i, j);
     const allXs = tableLines.flatMap(l => l.items.map(it => it.x));
     const cols = clusterX(allXs);
     const rows = tableLines.map(l => buildTableRow(l.items, cols));
-
     const firstRowHeader = rows[0].every(c => c.length > 0 && (c === c.toUpperCase() || c.length < 25));
     regions.push({ kind: 'table', rows, firstRowHeader });
     i = j;
   }
-
   return regions;
 }
 
-// ── Paragraph grouping: merge consecutive text lines into paragraphs ──────────
 function groupIntoParagraphs(regions: Region[], pageAvgFs: number): Region[] {
-  // For now, just merge consecutive lines with same approx font size into paragraphs
-  // This simulates paragraph detection
   const grouped: Region[] = [];
-  let pendingTextRuns: { text: string; bold: boolean; italic: boolean }[] = [];
+  let pendingRuns: { text: string; bold: boolean; italic: boolean }[] = [];
   let pendingFs = pageAvgFs;
-
-  function flush() {
-    if (pendingTextRuns.length) {
-      grouped.push({ kind: 'text', runs: [...pendingTextRuns], avgFontSize: pendingFs });
-      pendingTextRuns = [];
+  const flush = () => {
+    if (pendingRuns.length) {
+      grouped.push({ kind: 'text', runs: [...pendingRuns], avgFontSize: pendingFs });
+      pendingRuns = [];
     }
-  }
-
+  };
   for (const r of regions) {
-    if (r.kind === 'space') {
-      flush();
-      grouped.push(r);
-    } else if (r.kind === 'table') {
-      flush();
-      grouped.push(r);
-    } else {
-      // Text region
-      const isSameBlock = Math.abs(r.avgFontSize - pendingFs) < 1 && pendingTextRuns.length > 0;
-      if (isSameBlock) {
-        // Append with space
-        pendingTextRuns.push({ text: ' ', bold: false, italic: false }, ...r.runs);
-      } else {
-        flush();
-        pendingTextRuns = [...r.runs];
-        pendingFs = r.avgFontSize;
-      }
+    if (r.kind === 'space') { flush(); grouped.push(r); }
+    else if (r.kind === 'table') { flush(); grouped.push(r); }
+    else {
+      const same = Math.abs(r.avgFontSize - pendingFs) < 1 && pendingRuns.length > 0;
+      if (same) pendingRuns.push({ text: ' ', bold: false, italic: false }, ...r.runs);
+      else { flush(); pendingRuns = [...r.runs]; pendingFs = r.avgFontSize; }
     }
   }
   flush();
@@ -226,65 +164,171 @@ function regionToDocx(region: Region, globalAvgFs: number): (Paragraph | Table)[
   if (region.kind === 'text') {
     const fs = region.avgFontSize;
     let heading: (typeof HeadingLevel)[keyof typeof HeadingLevel] | undefined;
-    if (fs > globalAvgFs * 1.7)      heading = HeadingLevel.HEADING_1;
-    else if (fs > globalAvgFs * 1.4) heading = HeadingLevel.HEADING_2;
-    else if (fs > globalAvgFs * 1.15)heading = HeadingLevel.HEADING_3;
+    if (fs > globalAvgFs * 1.7)       heading = HeadingLevel.HEADING_1;
+    else if (fs > globalAvgFs * 1.4)  heading = HeadingLevel.HEADING_2;
+    else if (fs > globalAvgFs * 1.15) heading = HeadingLevel.HEADING_3;
 
-    // Build TextRuns with bold/italic
     const textRuns: TextRun[] = [];
     let buf = '', bufBold = region.runs[0]?.bold ?? false, bufItalic = region.runs[0]?.italic ?? false;
-
     const flushBuf = () => {
       if (buf) {
         textRuns.push(new TextRun({ text: buf, bold: bufBold || !!heading, italics: bufItalic, size: Math.round(Math.max(fs, 10)) * 2 }));
         buf = '';
       }
     };
-
     for (const run of region.runs) {
       if (run.bold !== bufBold || run.italic !== bufItalic) { flushBuf(); bufBold = run.bold; bufItalic = run.italic; }
       buf += run.text;
     }
     flushBuf();
-
     return [new Paragraph({ heading, children: textRuns })];
   }
 
   // Table
   const colCount = Math.max(...region.rows.map(r => r.length), 1);
   const colPct   = Math.floor(100 / colCount);
-
   const docxRows = region.rows.map((row, ri) =>
     new TableRow({
       tableHeader: ri === 0 && region.firstRowHeader,
       children: Array.from({ length: colCount }, (_, ci) =>
         new TableCell({
           width: { size: colPct, type: WidthType.PERCENTAGE },
-          children: [new Paragraph({
-            children: [new TextRun({
-              text: (row[ci] ?? '').trim(),
-              bold: ri === 0 && region.firstRowHeader,
-              size: 20,
-            })],
-          })],
+          children: [new Paragraph({ children: [new TextRun({ text: (row[ci] ?? '').trim(), bold: ri === 0 && region.firstRowHeader, size: 20 })] })],
         })
       ),
     })
   );
-
   return [
     new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: docxRows }),
     new Paragraph({ children: [] }),
   ];
 }
 
+// ── Render PDF page to canvas ─────────────────────────────────────────────────
+async function renderPageToCanvas(page: any, scale: number): Promise<HTMLCanvasElement> {
+  const viewport = page.getViewport({ scale });
+  const canvas   = document.createElement('canvas');
+  canvas.width   = Math.floor(viewport.width);
+  canvas.height  = Math.floor(viewport.height);
+  const ctx      = canvas.getContext('2d')!;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas;
+}
+
+// ── OCR a rendered canvas using Tesseract.js ──────────────────────────────────
+async function ocrCanvas(canvas: HTMLCanvasElement, lang: string): Promise<string> {
+  const Tesseract = await import('tesseract.js');
+  const result = await Tesseract.recognize(canvas, lang, { logger: () => {} });
+  return result.data.text ?? '';
+}
+
+// ── Extract images from PDF page operator list ────────────────────────────────
+async function extractPageImages(page: any, viewport: any): Promise<{ dataUrl: string; widthPt: number; heightPt: number }[]> {
+  const images: { dataUrl: string; widthPt: number; heightPt: number }[] = [];
+
+  try {
+    const ops = await page.getOperatorList();
+    const pdfjsOPS = (await import('pdfjs-dist')).OPS;
+
+    const imageNames: string[] = [];
+    for (let i = 0; i < ops.fnArray.length; i++) {
+      if (ops.fnArray[i] === pdfjsOPS.paintImageXObject ||
+          ops.fnArray[i] === pdfjsOPS.paintImageMaskXObject) {
+        const name = ops.argsArray[i][0];
+        if (typeof name === 'string' && !imageNames.includes(name)) {
+          imageNames.push(name);
+        }
+      }
+    }
+
+    for (const name of imageNames) {
+      try {
+        const imgObj = await new Promise<any>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('timeout')), 3000);
+          page.objs.get(name, (obj: any) => {
+            clearTimeout(timeout);
+            resolve(obj);
+          });
+        });
+
+        if (!imgObj || !imgObj.width || !imgObj.height) continue;
+
+        // Draw the image on an offscreen canvas
+        const imgCanvas  = document.createElement('canvas');
+        imgCanvas.width  = imgObj.width;
+        imgCanvas.height = imgObj.height;
+        const imgCtx     = imgCanvas.getContext('2d')!;
+        const imageData  = imgCtx.createImageData(imgObj.width, imgObj.height);
+
+        // imgObj.data is a Uint8ClampedArray (RGBA or RGB)
+        if (imgObj.data && imgObj.data.length > 0) {
+          const src = imgObj.data;
+          const dst = imageData.data;
+          if (src.length === imgObj.width * imgObj.height * 4) {
+            dst.set(src);
+          } else if (src.length === imgObj.width * imgObj.height * 3) {
+            // RGB → RGBA
+            for (let p = 0; p < imgObj.width * imgObj.height; p++) {
+              dst[p * 4]     = src[p * 3];
+              dst[p * 4 + 1] = src[p * 3 + 1];
+              dst[p * 4 + 2] = src[p * 3 + 2];
+              dst[p * 4 + 3] = 255;
+            }
+          } else {
+            continue; // unknown format
+          }
+          imgCtx.putImageData(imageData, 0, 0);
+          const dataUrl = imgCanvas.toDataURL('image/png');
+
+          // Approximate dimensions in PDF points (1pt ≈ viewport scale factor)
+          const widthPt  = (imgObj.width / viewport.scale) * 0.75;  // pt
+          const heightPt = (imgObj.height / viewport.scale) * 0.75;
+          images.push({ dataUrl, widthPt, heightPt });
+        }
+      } catch {
+        // Skip problematic images silently
+      }
+    }
+  } catch {
+    // Operator list not available — skip
+  }
+
+  return images;
+}
+
+// ── dataUrl → ArrayBuffer ─────────────────────────────────────────────────────
+async function dataUrlToArrayBuffer(dataUrl: string): Promise<ArrayBuffer> {
+  const res = await fetch(dataUrl);
+  return res.arrayBuffer();
+}
+
+// ── Scan page → docx paragraphs via OCR ──────────────────────────────────────
+async function ocrPageToDocx(page: any, lang: string): Promise<(Paragraph | Table)[]> {
+  const canvas  = await renderPageToCanvas(page, OCR_SCALE);
+  const ocrText = await ocrCanvas(canvas, lang);
+  const elements: (Paragraph | Table)[] = [];
+  const lines = ocrText.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed) {
+      elements.push(new Paragraph({ children: [new TextRun({ text: trimmed, size: 22 })] }));
+    } else {
+      elements.push(new Paragraph({ children: [] }));
+    }
+  }
+  return elements;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PdfToWordPage() {
   const [documents, setDocuments]     = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress]       = useState<{ page: number; total: number } | null>(null);
+  const [progress, setProgress]       = useState<{ page: number; total: number; label?: string } | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadFilename, setDownloadFilename] = useState<string>('');
+  const [enableOCR, setEnableOCR]     = useState(false);
+  const [ocrLang, setOcrLang]         = useState('ind+eng'); // Indonesian + English
+  const [extractImages, setExtractImages] = useState(true);
 
   const handleAddFiles = async (files: FileList | File[]) => {
     setDownloadUrl(null);
@@ -302,6 +346,8 @@ export default function PdfToWordPage() {
     const totalMB = documents.reduce((s, d) => s + d.file.size, 0) / 1048576;
     if (totalMB > 200)
       toast(`File besar (${totalMB.toFixed(0)} MB) — proses mungkin beberapa menit.`, { duration: 7000, icon: '⏳' });
+    if (enableOCR)
+      toast('Mode OCR aktif — proses lebih lambat, mohon tunggu.', { duration: 5000, icon: '🔍' });
 
     setIsProcessing(true);
     setDownloadUrl(null);
@@ -316,22 +362,45 @@ export default function PdfToWordPage() {
 
       for (const doc of documents) {
         const arrayBuffer = await doc.file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const totalPages = pdf.numPages;
+        const pdf         = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const totalPages  = pdf.numPages;
 
         const allElements: (Paragraph | Table)[] = [];
         const allFontSizes: number[] = [];
 
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
           setProgress({ page: pageNum, total: totalPages });
-          await new Promise<void>(r => setTimeout(r, 0));
+          await new Promise<void>(r => setTimeout(r, 0)); // yield
 
           const page        = await pdf.getPage(pageNum);
           const viewport    = page.getViewport({ scale: 1.0 });
           const pageWidth   = viewport.width;
           const textContent = await page.getTextContent();
 
-          // ── Collect items with full metadata ─────────────────────────────
+          // ── Count total text chars on this page ───────────────────────────
+          const totalChars = textContent.items.reduce((s: number, it: any) => s + (it.str?.length ?? 0), 0);
+          const isScanPage = totalChars < SCAN_PAGE_CHAR_THRESHOLD;
+
+          // ── OCR path: scanned page with no/few text items ─────────────────
+          if (isScanPage && enableOCR) {
+            setProgress({ page: pageNum, total: totalPages, label: `OCR halaman ${pageNum}…` });
+            await new Promise<void>(r => setTimeout(r, 0));
+            const ocrElements = await ocrPageToDocx(page, ocrLang);
+            allElements.push(...ocrElements);
+
+            if (pageNum < totalPages)
+              allElements.push(new Paragraph({ pageBreakBefore: true, children: [] }));
+            continue;
+          }
+
+          // ── Image extraction path ─────────────────────────────────────────
+          let embeddedImages: { dataUrl: string; widthPt: number; heightPt: number }[] = [];
+          if (extractImages) {
+            const imgViewport = page.getViewport({ scale: IMAGE_SCALE });
+            embeddedImages = await extractPageImages(page, imgViewport);
+          }
+
+          // ── Standard text extraction ──────────────────────────────────────
           const rawItems: RawItem[] = [];
           for (const item of textContent.items) {
             if (!('str' in item) || !(item as any).str.trim()) continue;
@@ -340,14 +409,11 @@ export default function PdfToWordPage() {
             const x        = Array.isArray(it.transform) ? it.transform[4] : 0;
             const y        = Array.isArray(it.transform) ? it.transform[5] : 0;
             const tw       = typeof it.width === 'number' ? it.width : it.str.length * fs * 0.5;
-            const fontName = it.fontName ?? '';
-            const { bold, italic } = parseFontStyle(fontName);
-
-            rawItems.push({ text: it.str, x, y, fontSize: fs, textWidth: tw, bold, italic, fontName });
+            const { bold, italic } = parseFontStyle(it.fontName ?? '');
+            rawItems.push({ text: it.str, x, y, fontSize: fs, textWidth: tw, bold, italic, fontName: it.fontName ?? '' });
             allFontSizes.push(fs);
           }
 
-          // ── Group into lines by Y ─────────────────────────────────────────
           const lineMap = new Map<number, RawItem[]>();
           for (const item of rawItems) {
             let foundY: number | null = null;
@@ -366,21 +432,42 @@ export default function PdfToWordPage() {
               avgFontSize: items.reduce((s, it) => s + it.fontSize, 0) / items.length,
             }));
 
-          // ── Multi-column handling ─────────────────────────────────────────
-          const pageAvgFs = allFontSizes.length
-            ? allFontSizes.reduce((a, b) => a + b, 0) / allFontSizes.length : 12;
+          const pageAvgFs    = allFontSizes.length ? allFontSizes.reduce((a, b) => a + b, 0) / allFontSizes.length : 12;
+          const lineGroups   = detectColumns(lines, pageWidth);
 
-          // Detect columns (simple: just process lines in order for now)
-          // Full multi-column would reorder lines from left col first then right
-          const lineGroups = detectColumns(lines, pageWidth);
-
+          // Add text regions
           for (const group of lineGroups) {
             const groupLines = Array.isArray(group[0]) ? group as unknown as TextLine[] : group as TextLine[];
             const regions    = linesToRegions(groupLines, pageWidth, pageAvgFs);
             const grouped    = groupIntoParagraphs(regions, pageAvgFs);
-
             for (const region of grouped) {
               allElements.push(...regionToDocx(region, pageAvgFs));
+            }
+          }
+
+          // ── Append extracted images at end of page ────────────────────────
+          for (const img of embeddedImages) {
+            try {
+              const imgBuffer = await dataUrlToArrayBuffer(img.dataUrl);
+              // Max width: 180 pts (≈ A4 content area), keep aspect ratio
+              const maxWidthPt = 450; // half-page width in Word emu/20 = pt
+              const scale = img.widthPt > maxWidthPt ? maxWidthPt / img.widthPt : 1;
+              const w = Math.round(img.widthPt * scale);
+              const h = Math.round(img.heightPt * scale);
+
+              if (w > 20 && h > 20) { // skip tiny images
+                allElements.push(new Paragraph({
+                  children: [
+                    new ImageRun({
+                      type: 'png',
+                      data: imgBuffer,
+                      transformation: { width: w, height: h },
+                    }),
+                  ],
+                }));
+              }
+            } catch {
+              // skip broken image
             }
           }
 
@@ -406,6 +493,7 @@ export default function PdfToWordPage() {
 
       toast.success('Berhasil dikonversi ke Word!');
     } catch (e: any) {
+      console.error(e);
       toast.error(e.message || 'Gagal memproses file.');
     } finally {
       setIsProcessing(false);
@@ -421,8 +509,8 @@ export default function PdfToWordPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight sm:text-5xl">PDF ke Word</h1>
           <p className="mt-4 max-w-2xl text-xl text-slate-500 mx-auto">
-            Ubah PDF menjadi .docx yang bisa diedit. Teks, heading, bold/italic, dan tabel
-            terdeteksi otomatis. (100% di perangkat Anda)
+            Ubah PDF menjadi .docx yang bisa diedit. Mendukung OCR untuk PDF scan dan ekstraksi gambar.
+            (100% di perangkat Anda)
           </p>
         </div>
 
@@ -431,33 +519,93 @@ export default function PdfToWordPage() {
         {documents.length > 0 && !downloadUrl && (
           <div className="max-w-3xl mx-auto mt-12 bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
 
+            {/* Feature list */}
             {!isProcessing && (
-              <div className="mb-6 grid grid-cols-2 gap-3 text-sm">
-                {[
-                  ['✅', 'Teks paragraf & heading'],
-                  ['✅', 'Bold / Italic dari font PDF'],
-                  ['✅', 'Deteksi tabel otomatis'],
-                  ['✅', 'Deteksi multi-kolom'],
-                  ['✅', 'Mendukung file 500MB+'],
-                  ['✅', 'Progress per halaman'],
-                  ['⚠️', 'PDF scan (gambar) tidak bisa diekstrak'],
-                  ['⚠️', 'Gambar di PDF tidak diikutkan'],
-                ].map(([icon, label]) => (
-                  <div key={label} className="flex items-center gap-2 text-slate-600">
-                    <span>{icon}</span><span>{label}</span>
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="mb-6 grid grid-cols-2 gap-3 text-sm">
+                  {[
+                    ['✅', 'Teks paragraf & heading'],
+                    ['✅', 'Bold / Italic dari font PDF'],
+                    ['✅', 'Deteksi tabel otomatis'],
+                    ['✅', 'Deteksi multi-kolom'],
+                    ['✅', 'Mendukung file 500MB+'],
+                    ['✅', 'Progress per halaman'],
+                    ['✅', 'Gambar di PDF diekstrak'],
+                    ['✅', 'Mode OCR untuk PDF scan'],
+                  ].map(([icon, label]) => (
+                    <div key={label} className="flex items-center gap-2 text-slate-600">
+                      <span>{icon}</span><span>{label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Settings panel */}
+                <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                  {/* Extract images toggle */}
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">Ekstrak Gambar dari PDF</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Gambar yang ada di PDF akan disertakan di Word</p>
+                    </div>
+                    <button
+                      onClick={() => setExtractImages(!extractImages)}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${extractImages ? 'bg-blue-500' : 'bg-slate-300'}`}
+                    >
+                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${extractImages ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </label>
+
+                  {/* OCR toggle */}
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">Mode OCR (PDF Scan / Foto)</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Baca teks dari PDF yang berbasis gambar (lebih lambat)</p>
+                    </div>
+                    <button
+                      onClick={() => setEnableOCR(!enableOCR)}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${enableOCR ? 'bg-purple-500' : 'bg-slate-300'}`}
+                    >
+                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${enableOCR ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </label>
+
+                  {/* OCR language selector */}
+                  {enableOCR && (
+                    <div>
+                      <p className="text-sm font-medium text-slate-600 mb-2">Bahasa OCR</p>
+                      <select
+                        value={ocrLang}
+                        onChange={e => setOcrLang(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      >
+                        <option value="ind+eng">Indonesia + English</option>
+                        <option value="ind">Indonesia saja</option>
+                        <option value="eng">English saja</option>
+                        <option value="chi_sim+eng">Chinese (Simplified) + English</option>
+                        <option value="jpn+eng">Japanese + English</option>
+                        <option value="ara">Arabic</option>
+                      </select>
+                      <p className="mt-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                        ⏳ OCR membutuhkan waktu 5–30 detik per halaman tergantung ukuran dan bahasa. Halaman berteks normal akan tetap diproses cepat.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
+            {/* Progress bar */}
             {isProcessing && progress && (
               <div className="mb-6">
                 <div className="flex justify-between text-sm text-slate-500 mb-2">
-                  <span>Memproses halaman {progress.page} dari {progress.total}…</span>
+                  <span>{progress.label ?? `Memproses halaman ${progress.page} dari ${progress.total}…`}</span>
                   <span>{pct}%</span>
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-3">
-                  <div className="bg-blue-500 h-3 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                  <div
+                    className={`h-3 rounded-full transition-all duration-300 ${enableOCR ? 'bg-purple-500' : 'bg-blue-500'}`}
+                    style={{ width: `${pct}%` }}
+                  />
                 </div>
               </div>
             )}
@@ -469,7 +617,7 @@ export default function PdfToWordPage() {
 
             <div className="flex justify-center">
               <button onClick={handleConvert} disabled={isProcessing}
-                className="w-full sm:w-auto px-12 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50">
+                className={`w-full sm:w-auto px-12 py-4 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50 ${enableOCR ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
                 {isProcessing ? 'Memproses di perangkat…' : 'Konversi ke Word'}
               </button>
             </div>
