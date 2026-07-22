@@ -381,45 +381,65 @@ class PdfRenderer {
     });
   }
 
-  /** Render a simple bordered table */
+  /** Render a bordered table with full multiline cell support */
   renderTable(rows: { cells: string[]; isHeader: boolean }[]) {
     if (!rows.length) return;
     const cols = Math.max(...rows.map(r => r.cells.length));
     if (!cols) return;
 
-    const cellW  = CONTENT_W / cols;
-    const pad    = 2;  // mm
-    const fs     = 9;  // pt
-    const lineH  = fs * PT_TO_MM * 1.4;
-    const cellH  = lineH + pad * 2;
+    const cellW = CONTENT_W / cols;
+    const pad   = 2;    // mm padding inside cell
+    const fs    = 9;    // pt font size
+    const lineH = fs * PT_TO_MM * 1.45;
 
     for (const row of rows) {
-      this.checkPage(cellH + 1);
+      // ── Step 1: calculate dynamic row height from content ──────────────────
+      let maxLines = 1;
+      for (let ci = 0; ci < cols; ci++) {
+        const text = row.cells[ci] ?? '';
+        this.setFont(row.isHeader, false, fs);
+        const wrapped = this.pdf.splitTextToSize(text, cellW - pad * 2);
+        maxLines = Math.max(maxLines, Array.isArray(wrapped) ? wrapped.length : 1);
+      }
+      const rowH = maxLines * lineH + pad * 2;
+
+      this.checkPage(rowH + 1);
+
+      // ── Step 2: set draw/fill BEFORE drawing rectangles ───────────────────
+      this.pdf.setDrawColor(150, 155, 170);
+      this.pdf.setLineWidth(0.25);
 
       for (let ci = 0; ci < cols; ci++) {
         const cx = MARGIN + ci * cellW;
 
-        // Cell background
+        // Draw cell border + background (this.y = top of row, not baseline)
         if (row.isHeader) {
-          this.pdf.setFillColor(235, 237, 245);
-          this.pdf.rect(cx, this.y - pad, cellW, cellH, 'FD');
+          this.pdf.setFillColor(220, 228, 245);
+          this.pdf.rect(cx, this.y, cellW, rowH, 'FD');
         } else {
           this.pdf.setFillColor(255, 255, 255);
-          this.pdf.rect(cx, this.y - pad, cellW, cellH, 'D');
+          this.pdf.rect(cx, this.y, cellW, rowH, 'D');
         }
-        this.pdf.setDrawColor(190, 190, 200);
-        this.pdf.setLineWidth(0.2);
 
+        // ── Step 3: render ALL wrapped lines (not just lines[0]) ─────────
         const text = row.cells[ci] ?? '';
         this.setFont(row.isHeader, false, fs);
-        const lines = this.pdf.splitTextToSize(text, cellW - pad * 2);
-        if (lines.length > 0) {
-          this.pdf.text(String(lines[0]), cx + pad, this.y + lineH * 0.25);
+        this.pdf.setTextColor(20, 20, 20);
+        const wrappedLines = this.pdf.splitTextToSize(text, cellW - pad * 2);
+        const lines: string[] = Array.isArray(wrappedLines) ? wrappedLines : [wrappedLines];
+
+        for (let li = 0; li < lines.length; li++) {
+          // y baseline: top-of-row + padding + (line index + 0.85) * lineH
+          const textY = this.y + pad + lineH * (li + 0.85);
+          this.pdf.text(String(lines[li]), cx + pad, textY);
         }
       }
 
-      this.y += cellH;
+      // ── Step 4: advance y by actual row height ────────────────────────────
+      this.y += rowH;
     }
+
+    this.y += 2; // spacing after table
   }
 }
 
