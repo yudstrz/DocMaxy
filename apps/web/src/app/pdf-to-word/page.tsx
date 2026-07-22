@@ -328,8 +328,10 @@ export default function PdfToWordPage() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadFilename, setDownloadFilename] = useState<string>('');
   const [enableOCR, setEnableOCR]     = useState(false);
-  const [ocrLang, setOcrLang]         = useState('ind+eng'); // Indonesian + English
+  const [ocrLang, setOcrLang]         = useState('ind+eng');
   const [extractImages, setExtractImages] = useState(true);
+  // 'text' = extract text (default), 'image' = render each page as image (best for presentations)
+  const [pageRenderMode, setPageRenderMode] = useState<'text' | 'image'>('text');
 
   const handleAddFiles = async (files: FileList | File[]) => {
     setDownloadUrl(null);
@@ -381,6 +383,30 @@ export default function PdfToWordPage() {
           // ── Count total text chars on this page ───────────────────────────
           const totalChars = textContent.items.reduce((s: number, it: any) => s + (it.str?.length ?? 0), 0);
           const isScanPage = totalChars < SCAN_PAGE_CHAR_THRESHOLD;
+
+          // ── Image Render Mode: embed full page as JPEG (perfect for presentations) ──
+          if (pageRenderMode === 'image') {
+            try {
+              const renderCanvas = await renderPageToCanvas(page, IMAGE_SCALE);
+              const dataUrl      = renderCanvas.toDataURL('image/jpeg', 0.88);
+              renderCanvas.width = 0; renderCanvas.height = 0;
+              const imgBuffer    = await dataUrlToArrayBuffer(dataUrl);
+              const origVp       = page.getViewport({ scale: 1.0 });
+              // Fit to ~450pt (standard A4 Word content area)
+              const maxW   = 450;
+              const ratio  = origVp.width > maxW ? maxW / origVp.width : 1;
+              const wPt    = Math.round(origVp.width * ratio);
+              const hPt    = Math.round(origVp.height * ratio);
+              allElements.push(new Paragraph({
+                children: [new ImageRun({ type: 'jpg', data: imgBuffer, transformation: { width: wPt, height: hPt } })],
+              }));
+            } catch (e) {
+              console.warn('Page image render failed, skipping page', pageNum, e);
+            }
+            if (pageNum < totalPages)
+              allElements.push(new Paragraph({ pageBreakBefore: true, children: [] }));
+            continue;
+          }
 
           // ── OCR path: scanned page with no/few text items ─────────────────
           if (isScanPage && enableOCR) {
@@ -542,36 +568,67 @@ export default function PdfToWordPage() {
 
                 {/* Settings panel */}
                 <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
-                  {/* Extract images toggle */}
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">Ekstrak Gambar dari PDF</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Gambar yang ada di PDF akan disertakan di Word</p>
-                    </div>
-                    <button
-                      onClick={() => setExtractImages(!extractImages)}
-                      className={`relative w-12 h-6 rounded-full transition-colors ${extractImages ? 'bg-blue-500' : 'bg-slate-300'}`}
-                    >
-                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${extractImages ? 'left-7' : 'left-1'}`} />
-                    </button>
-                  </label>
 
-                  {/* OCR toggle */}
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">Mode OCR (PDF Scan / Foto)</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Baca teks dari PDF yang berbasis gambar (lebih lambat)</p>
+                  {/* Render Mode - most important toggle */}
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700 mb-2">Mode Konversi</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setPageRenderMode('text')}
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${pageRenderMode === 'text' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'}`}
+                      >
+                        <p className={`text-sm font-semibold ${pageRenderMode === 'text' ? 'text-blue-700' : 'text-slate-600'}`}>📝 Mode Teks</p>
+                        <p className="text-xs text-slate-400 mt-0.5 leading-snug">Ekstrak teks — cocok untuk dokumen, laporan, artikel</p>
+                      </button>
+                      <button
+                        onClick={() => setPageRenderMode('image')}
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${pageRenderMode === 'image' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-slate-300'}`}
+                      >
+                        <p className={`text-sm font-semibold ${pageRenderMode === 'image' ? 'text-emerald-700' : 'text-slate-600'}`}>🖼️ Mode Gambar</p>
+                        <p className="text-xs text-slate-400 mt-0.5 leading-snug">Render halaman — cocok untuk <strong>presentasi, desain, brosur</strong></p>
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setEnableOCR(!enableOCR)}
-                      className={`relative w-12 h-6 rounded-full transition-colors ${enableOCR ? 'bg-purple-500' : 'bg-slate-300'}`}
-                    >
-                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${enableOCR ? 'left-7' : 'left-1'}`} />
-                    </button>
-                  </label>
+                    {pageRenderMode === 'image' && (
+                      <p className="mt-2 text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
+                        🎯 Setiap halaman PDF akan dirender menjadi gambar — layout, gambar, dan warna terjaga 100%. Teks tidak bisa diedit, tapi tampilan persis sama seperti PDF asli.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Extract images toggle — only in text mode */}
+                  {pageRenderMode === 'text' && (
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">Ekstrak Gambar dari PDF</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Gambar yang ada di PDF akan disertakan di Word</p>
+                      </div>
+                      <button
+                        onClick={() => setExtractImages(!extractImages)}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${extractImages ? 'bg-blue-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${extractImages ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </label>
+                  )}
+
+                  {/* OCR toggle — only in text mode */}
+                  {pageRenderMode === 'text' && (
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">Mode OCR (PDF Scan / Foto)</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Baca teks dari PDF yang berbasis gambar (lebih lambat)</p>
+                      </div>
+                      <button
+                        onClick={() => setEnableOCR(!enableOCR)}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${enableOCR ? 'bg-purple-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${enableOCR ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </label>
+                  )}
 
                   {/* OCR language selector */}
-                  {enableOCR && (
+                  {pageRenderMode === 'text' && enableOCR && (
                     <div>
                       <p className="text-sm font-medium text-slate-600 mb-2">Bahasa OCR</p>
                       <select
