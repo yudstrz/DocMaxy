@@ -5,7 +5,7 @@ import { SortableGrid, PDFDocument as LocalPDFDocument } from '@/components/Sort
 import { generatePDFThumbnail } from '@/utils/pdf';
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
-  Table, TableRow, TableCell, WidthType, ImageRun,
+  Table, TableRow, TableCell, WidthType, ImageRun, PageOrientation,
 } from 'docx';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
@@ -371,6 +371,16 @@ export default function PdfToWordPage() {
         const allElements: (Paragraph | Table)[] = [];
         const allFontSizes: number[] = [];
 
+        // For image mode: detect page dimensions from first page to set Word page size
+        let pdfPageWidthPt  = 595; // A4 default
+        let pdfPageHeightPt = 842;
+        if (pageRenderMode === 'image') {
+          const firstPage = await pdf.getPage(1);
+          const fvp = firstPage.getViewport({ scale: 1.0 });
+          pdfPageWidthPt  = fvp.width;
+          pdfPageHeightPt = fvp.height;
+        }
+
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
           setProgress({ page: pageNum, total: totalPages });
           await new Promise<void>(r => setTimeout(r, 0)); // yield
@@ -388,16 +398,15 @@ export default function PdfToWordPage() {
           if (pageRenderMode === 'image') {
             try {
               const renderCanvas = await renderPageToCanvas(page, IMAGE_SCALE);
-              const dataUrl      = renderCanvas.toDataURL('image/jpeg', 0.88);
+              const dataUrl      = renderCanvas.toDataURL('image/jpeg', 0.90);
               renderCanvas.width = 0; renderCanvas.height = 0;
               const imgBuffer    = await dataUrlToArrayBuffer(dataUrl);
               const origVp       = page.getViewport({ scale: 1.0 });
-              // Fit to ~450pt (standard A4 Word content area)
-              const maxW   = 450;
-              const ratio  = origVp.width > maxW ? maxW / origVp.width : 1;
-              const wPt    = Math.round(origVp.width * ratio);
-              const hPt    = Math.round(origVp.height * ratio);
+              // Use full PDF page dimensions — image fills entire Word page
+              const wPt = Math.round(origVp.width);
+              const hPt = Math.round(origVp.height);
               allElements.push(new Paragraph({
+                spacing: { before: 0, after: 0 },
                 children: [new ImageRun({ type: 'jpg', data: imgBuffer, transformation: { width: wPt, height: hPt } })],
               }));
             } catch (e) {
@@ -502,7 +511,21 @@ export default function PdfToWordPage() {
             allElements.push(new Paragraph({ pageBreakBefore: true, children: [] }));
         }
 
-        const docxDoc = new Document({ sections: [{ children: allElements }] });
+        // Build section properties — for image mode, match PDF page size with zero margins
+        const isLandscape = pdfPageWidthPt > pdfPageHeightPt;
+        // 1pt = 20 twips
+        const sectionProps = pageRenderMode === 'image' ? {
+          page: {
+            size: {
+              width:       Math.round(pdfPageWidthPt  * 20),
+              height:      Math.round(pdfPageHeightPt * 20),
+              orientation: isLandscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
+            },
+            margin: { top: 0, right: 0, bottom: 0, left: 0, header: 0, footer: 0, gutter: 0 },
+          },
+        } : {};
+
+        const docxDoc = new Document({ sections: [{ properties: sectionProps, children: allElements }] });
         const blob    = await Packer.toBlob(docxDoc);
         results.push({ name: `${doc.file.name.replace(/\.[^/.]+$/, '')}.docx`, blob });
       }
