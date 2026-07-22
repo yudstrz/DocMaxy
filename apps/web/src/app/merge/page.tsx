@@ -9,6 +9,45 @@ import toast from 'react-hot-toast';
 
 const yieldToBrowser = () => new Promise<void>((r) => setTimeout(r, 0));
 
+function parsePageString(pagesStr: string | undefined, totalPages: number): number[] {
+  if (!pagesStr || !pagesStr.trim()) {
+    return Array.from({ length: totalPages }, (_, i) => i);
+  }
+  
+  const indices: number[] = [];
+  const parts = pagesStr.split(',');
+  
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    
+    if (trimmed.includes('-')) {
+      const [startStr, endStr] = trimmed.split('-');
+      const start = parseInt(startStr, 10);
+      const end = parseInt(endStr, 10);
+      
+      if (!isNaN(start) && !isNaN(end)) {
+        const step = start <= end ? 1 : -1;
+        const validStart = Math.max(1, Math.min(start, totalPages));
+        const validEnd = Math.max(1, Math.min(end, totalPages));
+        
+        if (step === 1) {
+          for (let i = validStart; i <= validEnd; i++) indices.push(i - 1);
+        } else {
+          for (let i = validStart; i >= validEnd; i--) indices.push(i - 1);
+        }
+      }
+    } else {
+      const pageNum = parseInt(trimmed, 10);
+      if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+        indices.push(pageNum - 1);
+      }
+    }
+  }
+  
+  return indices.length > 0 ? indices : Array.from({ length: totalPages }, (_, i) => i);
+}
+
 export default function MergePage() {
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -28,6 +67,10 @@ export default function MergePage() {
       const thumb = await generatePDFThumbnail(doc.file).catch(() => null);
       setDocuments((prev) => prev.map((p) => p.id === doc.id ? { ...p, thumbnail: thumb } : p));
     }
+  };
+
+  const handlePageInputChange = (id: string, value: string) => {
+    setDocuments((prev) => prev.map((doc) => doc.id === id ? { ...doc, pages: value } : doc));
   };
 
   const handleMerge = async () => {
@@ -55,15 +98,21 @@ export default function MergePage() {
         const pdfDoc     = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
         const pageCount  = pdfDoc.getPageCount();
 
-        // Copy page-by-page with periodic yield (prevents UI freeze on large PDFs)
-        const indices = pdfDoc.getPageIndices();
+        // Use parsed page indices
+        const indices = parsePageString(doc.pages, pageCount);
+        
+        // Copy page-by-page with periodic yield
         for (let pi = 0; pi < indices.length; pi++) {
           if (pi > 0 && pi % 10 === 0) {
-            setProgress({ current: di + 1, total: documents.length, label: `${doc.file.name} — halaman ${pi}/${pageCount}` });
+            setProgress({ current: di + 1, total: documents.length, label: `${doc.file.name} — halaman ${pi}/${indices.length}` });
             await yieldToBrowser();
           }
-          const [copied] = await mergedPdf.copyPages(pdfDoc, [indices[pi]]);
-          mergedPdf.addPage(copied);
+          try {
+            const [copied] = await mergedPdf.copyPages(pdfDoc, [indices[pi]]);
+            mergedPdf.addPage(copied);
+          } catch (e) {
+            console.warn('Skipping invalid page index', indices[pi]);
+          }
         }
       }
 
@@ -95,7 +144,13 @@ export default function MergePage() {
           </p>
         </div>
 
-        <SortableGrid items={documents} setItems={setDocuments} onAddFiles={handleAddFiles} />
+        <SortableGrid 
+          items={documents} 
+          setItems={setDocuments} 
+          onAddFiles={handleAddFiles} 
+          showPageInput={true}
+          onPageInputChange={handlePageInputChange}
+        />
 
         {documents.length >= 2 && !downloadUrl && (
           <div className="max-w-3xl mx-auto mt-12 bg-white p-8 rounded-3xl shadow-sm border border-slate-200">

@@ -236,7 +236,7 @@ function regionToDocx(region: Region, globalAvgFs: number): (Paragraph | Table)[
 
     const flushBuf = () => {
       if (buf) {
-        textRuns.push(new TextRun({ text: buf, bold: bufBold || !!heading, italic: bufItalic, size: Math.round(Math.max(fs, 10)) * 2 }));
+        textRuns.push(new TextRun({ text: buf, bold: bufBold || !!heading, italics: bufItalic, size: Math.round(Math.max(fs, 10)) * 2 }));
         buf = '';
       }
     };

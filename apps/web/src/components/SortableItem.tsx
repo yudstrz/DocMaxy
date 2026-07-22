@@ -15,9 +15,12 @@ interface SortableItemProps {
   thumbnail: string | null;
   index: number;
   onRemove: (id: string) => void;
+  pages?: string;
+  showPageInput?: boolean;
+  onPageInputChange?: (id: string, value: string) => void;
 }
 
-export function SortableItem({ id, file, thumbnail, index, onRemove }: SortableItemProps) {
+export function SortableItem({ id, file, thumbnail, index, onRemove, pages = '', showPageInput, onPageInputChange }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -73,9 +76,19 @@ export function SortableItem({ id, file, thumbnail, index, onRemove }: SortableI
         <p className="text-xs font-medium text-slate-700 truncate px-1">
           {file.name}
         </p>
-        <p className="text-[10px] text-slate-400 mt-0.5">
+        <p className="text-[10px] text-slate-400 mt-0.5 mb-2">
           {(file.size / 1024 / 1024).toFixed(2)} MB
         </p>
+        {showPageInput && (
+          <input
+            type="text"
+            value={pages}
+            onChange={(e) => onPageInputChange && onPageInputChange(id, e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()} // Prevent drag when focusing input
+            placeholder="Hal: 1, 3-5"
+            className="w-full mt-1 px-2 py-1.5 text-xs text-center border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+          />
+        )}
       </div>
     </div>
   );

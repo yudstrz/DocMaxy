@@ -24,6 +24,7 @@ export interface PDFDocument {
   id: string;
   file: File;
   thumbnail: string | null;
+  pages?: string;
 }
 
 interface SortableGridProps {
@@ -32,9 +33,11 @@ interface SortableGridProps {
   onAddFiles: (files: FileList | File[]) => void;
   accept?: string;
   uploadLabel?: string;
+  showPageInput?: boolean;
+  onPageInputChange?: (id: string, value: string) => void;
 }
 
-export function SortableGrid({ items, setItems, onAddFiles, accept = "application/pdf", uploadLabel = "Tambah File" }: SortableGridProps) {
+export function SortableGrid({ items, setItems, onAddFiles, accept = "application/pdf", uploadLabel = "Tambah File", showPageInput, onPageInputChange }: SortableGridProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -148,6 +151,9 @@ export function SortableGrid({ items, setItems, onAddFiles, accept = "applicatio
                 thumbnail={item.thumbnail}
                 index={index}
                 onRemove={handleRemove}
+                pages={item.pages}
+                showPageInput={showPageInput}
+                onPageInputChange={onPageInputChange}
               />
             ))}
           </div>
