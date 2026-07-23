@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Loader2, ShieldCheck } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface GranularProgressModalProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ export function GranularProgressModal({
   fileName,
   stepDescription,
 }: GranularProgressModalProps) {
+  const { t } = useLanguage();
+
   if (!isOpen) return null;
 
   const percentage = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0;
@@ -30,7 +33,7 @@ export function GranularProgressModal({
         </div>
 
         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-          {stepDescription || 'Sedang Memproses Dokumen...'}
+          {stepDescription || t('processingTitle')}
         </h3>
 
         {fileName && (
@@ -42,7 +45,7 @@ export function GranularProgressModal({
         <div className="space-y-2 mb-2">
           <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span>
-              {total > 0 ? `Halaman ${current} dari ${total}` : 'Memproses...'}
+              {total > 0 ? `${current} / ${total}` : t('processing')}
             </span>
             <span>{percentage}%</span>
           </div>
@@ -56,8 +59,8 @@ export function GranularProgressModal({
         </div>
 
         <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-3 flex items-center justify-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Proses berjalan 100% di browser Anda (aman & privat).</span>
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+          <span>{t('processingLocalPrivacyNotice')}</span>
         </p>
       </div>
     </div>

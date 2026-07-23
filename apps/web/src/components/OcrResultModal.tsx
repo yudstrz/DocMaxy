@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { FileText, Copy, Download, X, Check, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface OcrResultModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export function OcrResultModal({
   imageSrc,
   onClose,
 }: OcrResultModalProps) {
+  const { t } = useLanguage();
   const [extractedText, setExtractedText] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -38,7 +40,7 @@ export function OcrResultModal({
       await worker.terminate();
 
       setExtractedText(ret.data.text || 'Tidak ada teks yang dapat dideteksi dari gambar ini.');
-      toast.success('Teks dokumen berhasil diekstraksi!');
+      toast.success(t('successTitle'));
     } catch (err: any) {
       console.error('OCR Error:', err);
       setExtractedText('Gagal mengekstraksi teks. Coba gunakan filter B&W / Enhance.');
@@ -52,7 +54,7 @@ export function OcrResultModal({
   const handleCopy = () => {
     navigator.clipboard.writeText(extractedText);
     setCopied(true);
-    toast.success('Teks berhasil disalin ke clipboard!');
+    toast.success(t('ocrCopied'));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -75,10 +77,10 @@ export function OcrResultModal({
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                Hasil Ekstraksi Teks (OCR)
+                {t('ocrModalTitle')}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Tesseract OCR engine (Bahasa Indonesia & English)
+                {t('ocrSubtitle')}
               </p>
             </div>
           </div>
@@ -93,10 +95,10 @@ export function OcrResultModal({
             <div className="text-center py-16">
               <Loader2 className="w-10 h-10 text-[#00B69A] animate-spin mx-auto mb-3" />
               <p className="text-slate-600 dark:text-slate-300 font-semibold text-sm">
-                Mengekstraksi Teks dari Gambar...
+                {t('ocrExtracting')}
               </p>
               <p className="text-xs text-slate-400 mt-1">
-                Harap tunggu beberapa detik
+                {t('ocrWaitNotice')}
               </p>
             </div>
           ) : (
@@ -109,18 +111,18 @@ export function OcrResultModal({
         </div>
 
         <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
-          <button onClick={onClose} className="px-4 py-2 text-slate-500 hover:text-slate-700 text-xs font-semibold">
-            Tutup
+          <button onClick={onClose} className="px-4 py-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-xs font-semibold">
+            {t('ocrClose')}
           </button>
 
           <div className="flex gap-2">
             <button
               onClick={handleCopy}
               disabled={isExtracting || !extractedText}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl transition-all disabled:opacity-50"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-              <span>{copied ? 'Tersalin!' : 'Salin Teks'}</span>
+              <span>{copied ? t('ocrCopied') : t('ocrCopyText')}</span>
             </button>
 
             <button

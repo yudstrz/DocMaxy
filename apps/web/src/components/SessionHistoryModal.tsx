@@ -75,7 +75,7 @@ export function SessionHistoryModal({ isOpen, onClose }: SessionHistoryModalProp
 
         <div className="flex-1 overflow-y-auto py-4 space-y-3">
           {isLoading ? (
-            <p className="text-center text-slate-400 py-8">Memuat riwayat...</p>
+            <p className="text-center text-slate-400 py-8">{t('historyLoading')}</p>
           ) : items.length === 0 ? (
             <div className="text-center py-12">
               <FileText className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
@@ -114,7 +114,7 @@ export function SessionHistoryModal({ isOpen, onClose }: SessionHistoryModalProp
                   className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-all shrink-0"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Unduh</span>
+                  <span>{t('download')}</span>
                 </button>
               </div>
             ))

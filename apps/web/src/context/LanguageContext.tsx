@@ -14,6 +14,16 @@ const TRANSLATIONS = {
     langToggle: "Bahasa",
     privacyLink: "Kebijakan Privasi",
     termsLink: "Syarat & Ketentuan",
+    navWatermark: "Watermark",
+    navOrganize: "Atur PDF",
+    navScan: "Pindai",
+
+    // History Modal
+    historyTitle: "Riwayat Sesi Selesai",
+    historyEmpty: "Belum ada riwayat pemrosesan dokumen",
+    historyClear: "Bersihkan Riwayat",
+    historyAutoExpireNotice: "Riwayat disimpan secara lokal di browser Anda",
+    historyLoading: "Memuat riwayat...",
 
     // Hero Home
     heroTitle: "DocMaxy PDF Toolkit",
@@ -59,6 +69,21 @@ const TRANSLATIONS = {
     selectedItems: "terpilih",
     download: "Unduh Hasil",
     processing: "Memproses di perangkat...",
+    cancel: "Batal",
+    unlocking: "Membuka...",
+    processingTitle: "Sedang Memproses Dokumen...",
+    processingLocalPrivacyNotice: "Proses berjalan 100% di browser Anda (aman & privat).",
+    cropModalTitle: "Sesuaikan Sudut Dokumen",
+    cropReset: "Reset Sudut",
+    cropConfirm: "Potong Dokumen",
+    cropProcessing: "Memotong...",
+    ocrModalTitle: "Hasil Ekstraksi Teks (OCR)",
+    ocrSubtitle: "Tesseract OCR engine (Bahasa Indonesia & English)",
+    ocrExtracting: "Mengekstraksi Teks dari Gambar...",
+    ocrWaitNotice: "Harap tunggu beberapa detik",
+    ocrCopyText: "Salin Teks",
+    ocrCopied: "Tersalin!",
+    ocrClose: "Tutup",
     oddPages: "Halaman Ganjil",
     evenPages: "Halaman Genap",
     first5Pages: "5 Pertama",
@@ -126,12 +151,6 @@ const TRANSLATIONS = {
     passwordInputPlaceholder: "Masukkan kata sandi...",
     unlock: "Buka Dokumen",
     incorrectPassword: "Kata sandi salah. Silakan coba lagi.",
-
-    // History Modal
-    historyTitle: "Riwayat Sesi Lokal",
-    historyEmpty: "Belum ada file yang diproses pada sesi ini.",
-    historyClear: "Bersihkan Riwayat",
-    historyAutoExpireNotice: "File tersimpan sementara di browser Anda dan otomatis terhapus dalam 1 jam.",
   },
   en: {
     // Nav
@@ -142,6 +161,16 @@ const TRANSLATIONS = {
     langToggle: "Language",
     privacyLink: "Privacy Policy",
     termsLink: "Terms of Service",
+    navWatermark: "Watermark",
+    navOrganize: "Organize PDF",
+    navScan: "Scan",
+
+    // History Modal
+    historyTitle: "Completed Session History",
+    historyEmpty: "No document processing history yet",
+    historyClear: "Clear History",
+    historyAutoExpireNotice: "History is stored locally in your browser",
+    historyLoading: "Loading history...",
 
     // Hero Home
     heroTitle: "DocMaxy PDF Toolkit",
@@ -187,6 +216,21 @@ const TRANSLATIONS = {
     selectedItems: "selected",
     download: "Download Result",
     processing: "Processing on device...",
+    cancel: "Cancel",
+    unlocking: "Unlocking...",
+    processingTitle: "Processing Document...",
+    processingLocalPrivacyNotice: "Process runs 100% locally in your browser (secure & private).",
+    cropModalTitle: "Adjust Document Corners",
+    cropReset: "Reset Corners",
+    cropConfirm: "Crop Document",
+    cropProcessing: "Cropping...",
+    ocrModalTitle: "Text Extraction Result (OCR)",
+    ocrSubtitle: "Tesseract OCR engine (Indonesian & English)",
+    ocrExtracting: "Extracting Text from Image...",
+    ocrWaitNotice: "Please wait a few seconds",
+    ocrCopyText: "Copy Text",
+    ocrCopied: "Copied!",
+    ocrClose: "Close",
     oddPages: "Odd Pages",
     evenPages: "Even Pages",
     first5Pages: "First 5",
@@ -254,12 +298,6 @@ const TRANSLATIONS = {
     passwordInputPlaceholder: "Enter password...",
     unlock: "Unlock Document",
     incorrectPassword: "Incorrect password. Please try again.",
-
-    // History Modal
-    historyTitle: "Local Session History",
-    historyEmpty: "No files processed in this session yet.",
-    historyClear: "Clear History",
-    historyAutoExpireNotice: "Files are temporarily saved in your browser and auto-expire in 1 hour.",
   }
 };
 

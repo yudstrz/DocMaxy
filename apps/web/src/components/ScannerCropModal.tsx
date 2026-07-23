@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { Point, cropPerspective } from '@/utils/cameraFilter';
 import { Crop, RotateCcw, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface ScannerCropModalProps {
   isOpen: boolean;
@@ -18,12 +19,12 @@ export function ScannerCropModal({
   onConfirmCrop,
   onClose,
 }: ScannerCropModalProps) {
-  // Default 4 corners with 5% inset
+  const { t } = useLanguage();
   const [corners, setCorners] = useState<[Point, Point, Point, Point]>([
-    { x: 0.08, y: 0.08 }, // TL
-    { x: 0.92, y: 0.08 }, // TR
-    { x: 0.92, y: 0.92 }, // BR
-    { x: 0.08, y: 0.92 }, // BL
+    { x: 0.08, y: 0.08 },
+    { x: 0.92, y: 0.08 },
+    { x: 0.92, y: 0.92 },
+    { x: 0.08, y: 0.92 },
   ]);
 
   const [activeCornerIdx, setActiveCornerIdx] = useState<number | null>(null);
@@ -72,7 +73,7 @@ export function ScannerCropModal({
     try {
       const croppedSrc = await cropPerspective(imageSrc, corners);
       onConfirmCrop(croppedSrc);
-      toast.success('Potongan dokumen berhasil disesuaikan!');
+      toast.success(t('successApplied'));
       onClose();
     } catch (err: any) {
       toast.error('Gagal memotong gambar dokumen.');
@@ -88,7 +89,7 @@ export function ScannerCropModal({
         <div className="w-full flex items-center justify-between pb-4 border-b border-slate-800 mb-4 text-white">
           <div className="flex items-center gap-2">
             <Crop className="w-5 h-5 text-[#00B69A]" />
-            <h3 className="font-bold text-lg">Sesuaikan Sudut Dokumen</h3>
+            <h3 className="font-bold text-lg">{t('cropModalTitle')}</h3>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 rounded-full">
             <X className="w-5 h-5" />
@@ -104,7 +105,6 @@ export function ScannerCropModal({
         >
           <img src={imageSrc} alt="Crop view" className="max-h-[60vh] object-contain pointer-events-none" />
 
-          {/* SVG Overlay connecting the 4 handles */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none">
             <polygon
               points={`${corners[0].x * 100}% ${corners[0].y * 100}%, ${corners[1].x * 100}% ${corners[1].y * 100}%, ${corners[2].x * 100}% ${corners[2].y * 100}%, ${corners[3].x * 100}% ${corners[3].y * 100}%`}
@@ -115,7 +115,6 @@ export function ScannerCropModal({
             />
           </svg>
 
-          {/* Draggable Corner Handles */}
           {corners.map((corner, idx) => (
             <div
               key={idx}
@@ -136,7 +135,7 @@ export function ScannerCropModal({
             className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
-            <span>Reset Sudut</span>
+            <span>{t('cropReset')}</span>
           </button>
 
           <div className="flex gap-3">
@@ -144,7 +143,7 @@ export function ScannerCropModal({
               onClick={onClose}
               className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl"
             >
-              Batal
+              {t('cancel')}
             </button>
             <button
               onClick={handleConfirm}
@@ -152,7 +151,7 @@ export function ScannerCropModal({
               className="flex items-center gap-2 px-6 py-2.5 bg-[#00B69A] hover:bg-[#00a38a] text-white font-bold text-xs rounded-xl shadow-lg transition-all disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              <span>{isProcessing ? 'Memotong...' : 'Potong Dokumen'}</span>
+              <span>{isProcessing ? t('cropProcessing') : t('cropConfirm')}</span>
             </button>
           </div>
         </div>

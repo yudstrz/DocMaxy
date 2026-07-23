@@ -98,7 +98,7 @@ export function SmartPasswordModal({
               onClick={onClose}
               className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
             >
-              Batal
+              {t('cancel')}
             </button>
             <button
               type="submit"
@@ -106,7 +106,7 @@ export function SmartPasswordModal({
               className="flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <KeyRound className="w-4 h-4" />
-              {isSubmitting ? 'Membuka...' : t('unlock')}
+              {isSubmitting ? t('unlocking') : t('unlock')}
             </button>
           </div>
         </form>

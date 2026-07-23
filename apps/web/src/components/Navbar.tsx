@@ -44,7 +44,7 @@ export function Navbar() {
                 className="hidden md:flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-xl transition-all text-xs font-medium"
               >
                 <Stamp className="w-4 h-4 text-amber-500" />
-                <span>Watermark</span>
+                <span>{t('navWatermark')}</span>
               </Link>
 
               <Link
@@ -53,7 +53,7 @@ export function Navbar() {
                 className="hidden md:flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-xl transition-all text-xs font-medium"
               >
                 <LayoutGrid className="w-4 h-4 text-cyan-500" />
-                <span>Atur PDF</span>
+                <span>{t('navOrganize')}</span>
               </Link>
 
               <Link
@@ -62,7 +62,7 @@ export function Navbar() {
                 className="hidden md:flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-xl transition-all text-xs font-medium"
               >
                 <Camera className="w-4 h-4 text-rose-500" />
-                <span>Pindai</span>
+                <span>{t('navScan')}</span>
               </Link>
 
               {/* Session History */}
