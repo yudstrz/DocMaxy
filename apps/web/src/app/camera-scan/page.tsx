@@ -125,11 +125,38 @@ export default function CameraScanPage() {
       console.error('Camera Start Error:', err);
       setIsCameraActive(false);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setCameraErrorMsg(t('cameraBlockedStep'));
+        // Permission denied by user
+        setCameraErrorMsg(
+          lang === 'id'
+            ? 'Izin kamera ditolak. Setelah mengizinkan di pengaturan browser, tekan tombol di bawah atau refresh halaman ini.'
+            : 'Camera permission denied. After allowing in browser settings, tap the button below or refresh this page.'
+        );
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setCameraErrorMsg('Perangkat kamera tidak ditemukan pada HP/Komputer Anda.');
+        setCameraErrorMsg(
+          lang === 'id'
+            ? 'Kamera tidak ditemukan. Pastikan perangkat Anda memiliki kamera yang terhubung.'
+            : 'No camera found. Make sure your device has a connected camera.'
+        );
+      } else if (err.name === 'NotReadableError' || err.name === 'AbortError') {
+        // Camera is already in use by another app or tab
+        setCameraErrorMsg(
+          lang === 'id'
+            ? 'Kamera sedang digunakan oleh aplikasi lain. Tutup aplikasi kamera lainnya lalu coba lagi.'
+            : 'Camera is in use by another app. Close other camera apps and try again.'
+        );
+      } else if (err.name === 'OverconstrainedError') {
+        // Constraints not satisfied — retry with minimal constraints
+        setCameraErrorMsg(
+          lang === 'id'
+            ? 'Kamera tidak mendukung resolusi yang diminta. Coba lagi.'
+            : 'Camera does not support the requested resolution. Please try again.'
+        );
       } else {
-        setCameraErrorMsg('Gagal membuka kamera. Silakan klik tombol aktifkan di bawah untuk mencoba lagi.');
+        setCameraErrorMsg(
+          lang === 'id'
+            ? 'Gagal membuka kamera. Tekan tombol di bawah untuk mencoba lagi.'
+            : 'Failed to open camera. Tap the button below to try again.'
+        );
       }
     } finally {
       setIsRequestingPermission(false);
@@ -175,6 +202,30 @@ export default function CameraScanPage() {
     return () => stopCamera();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Watch for browser camera permission changes (e.g. user grants after initial denial)
+  // This auto-retries startCamera when the user enables the permission from browser settings
+  useEffect(() => {
+    if (!navigator.permissions) return;
+    let permissionStatus: PermissionStatus | null = null;
+
+    navigator.permissions.query({ name: 'camera' as PermissionName }).then((status) => {
+      permissionStatus = status;
+      status.onchange = () => {
+        if (status.state === 'granted' && !isCameraActive) {
+          setCameraErrorMsg(null);
+          startCamera();
+        }
+      };
+    }).catch(() => {
+      // Permissions API not supported — silently ignore
+    });
+
+    return () => {
+      if (permissionStatus) permissionStatus.onchange = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCameraActive]);
 
   // 2. Capture Shutter Action
   const handleCapture = async () => {
@@ -551,12 +602,27 @@ export default function CameraScanPage() {
 
             {/* Error Message Box if permission blocked */}
             {cameraErrorMsg && (
-              <div className="w-full p-4 bg-rose-950/60 border border-rose-800/80 rounded-2xl mb-6 text-left flex items-start gap-3">
-                <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                <div className="text-xs text-rose-200">
-                  <p className="font-bold text-rose-300 mb-1">Akses Kamera Dibatasi</p>
-                  <p>{cameraErrorMsg}</p>
+              <div className="w-full p-4 bg-rose-950/60 border border-rose-800/80 rounded-2xl mb-4 text-left flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                  <div className="text-xs text-rose-200">
+                    <p className="font-bold text-rose-300 mb-1">
+                      {lang === 'id' ? 'Gagal Membuka Kamera' : 'Camera Failed to Open'}
+                    </p>
+                    <p className="leading-relaxed">{cameraErrorMsg}</p>
+                  </div>
                 </div>
+                {/* Refresh page button — needed when browser requires reload after permission change */}
+                <button
+                  onClick={() => window.location.reload()}
+                  className="w-full py-2 bg-rose-800/60 hover:bg-rose-700/70 border border-rose-700 text-rose-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors active:scale-95"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+                    <path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                  </svg>
+                  <span>{lang === 'id' ? 'Refresh Halaman & Coba Lagi' : 'Refresh Page & Try Again'}</span>
+                </button>
               </div>
             )}
 
