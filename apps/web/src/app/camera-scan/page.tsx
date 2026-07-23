@@ -26,6 +26,7 @@ interface ScannedPhoto {
 
 type ScanMode = 'scan' | 'id_card';
 type IDCardType = 'general' | 'driver_license' | 'id_card' | 'passport' | 'bank_card';
+type CameraAspectRatio = 'full' | '4:3' | '3:4' | '1:1' | '16:9';
 
 const PAGE_DIMS: Record<string, [number, number]> = {
   a4: [595.28, 841.89],
@@ -50,6 +51,7 @@ export default function CameraScanPage() {
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  const [aspectRatio, setAspectRatio] = useState<CameraAspectRatio>('full');
   const [cameraErrorMsg, setCameraErrorMsg] = useState<string | null>(null);
 
   // Gallery & Filter States
@@ -227,18 +229,49 @@ export default function CameraScanPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCameraActive]);
 
-  // 2. Capture Shutter Action
+  // 2. Capture Shutter Action with Aspect Ratio Cropping
   const handleCapture = async () => {
     if (!videoRef.current) return;
 
     const video = videoRef.current;
+    const vW = video.videoWidth || 1280;
+    const vH = video.videoHeight || 720;
+
+    let cropX = 0;
+    let cropY = 0;
+    let cropW = vW;
+    let cropH = vH;
+
+    if (aspectRatio !== 'full') {
+      let targetRatio = 1;
+      if (aspectRatio === '4:3') targetRatio = 4 / 3;
+      else if (aspectRatio === '3:4') targetRatio = 3 / 4;
+      else if (aspectRatio === '1:1') targetRatio = 1;
+      else if (aspectRatio === '16:9') targetRatio = 16 / 9;
+
+      const currentRatio = vW / vH;
+      if (currentRatio > targetRatio) {
+        // Video is wider than target aspect ratio -> crop width
+        cropH = vH;
+        cropW = vH * targetRatio;
+        cropX = (vW - cropW) / 2;
+        cropY = 0;
+      } else {
+        // Video is taller than target aspect ratio -> crop height
+        cropW = vW;
+        cropH = vW / targetRatio;
+        cropX = 0;
+        cropY = (vH - cropH) / 2;
+      }
+    }
+
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    canvas.width = Math.round(cropW);
+    canvas.height = Math.round(cropH);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.drawImage(video, 0, 0);
+    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
     const originalSrc = canvas.toDataURL('image/jpeg', 0.92);
 
     const filteredSrc = await applyCameraFilter(originalSrc, activeFilter);
@@ -438,13 +471,30 @@ export default function CameraScanPage() {
       {/* -------------------- PHASE 1: CAMERA VIEWFINDER (FULLSCREEN 100DVH) -------------------- */}
       {isCameraActive && (
         <div className="fixed inset-0 z-50 flex flex-col justify-between bg-black h-[100dvh] w-screen overflow-hidden">
-          {/* Top Bar (Cleaned up: Removed HD & 3-dots) */}
-          <div className="h-14 shrink-0 flex items-center justify-between px-4 bg-gradient-to-b from-black/90 to-black/30 z-30">
+          {/* Top Bar with Flash, Grid & Aspect Ratio Selector */}
+          <div className="h-14 shrink-0 flex items-center justify-between px-3 bg-gradient-to-b from-black/90 to-black/30 z-30">
             <button onClick={stopCamera} className="p-2 text-white hover:opacity-80">
               <X className="w-6 h-6" />
             </button>
 
-            <div className="flex items-center gap-4">
+            {/* Aspect Ratio Pill Selector */}
+            <div className="flex items-center bg-slate-900/90 backdrop-blur-md rounded-full p-0.5 border border-slate-800">
+              {(['full', '4:3', '3:4', '1:1', '16:9'] as CameraAspectRatio[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setAspectRatio(r)}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                    aspectRatio === r
+                      ? 'bg-[#00B69A] text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {r === 'full' ? 'Full' : r}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1">
               <button onClick={toggleFlash} className="p-2 text-white">
                 {flashOn ? <Zap className="w-5 h-5 text-amber-400 fill-amber-400" /> : <ZapOff className="w-5 h-5 text-slate-400" />}
               </button>
@@ -468,10 +518,31 @@ export default function CameraScanPage() {
               </div>
             )}
 
-            {/* Frame Overlay */}
-            <div className="absolute inset-6 sm:inset-12 border-2 border-[#00B69A] rounded-2xl pointer-events-none shadow-[0_0_20px_rgba(0,182,154,0.3)] flex items-center justify-center">
-              <div className="w-full h-0.5 bg-[#00B69A]/30 animate-pulse" />
-            </div>
+            {/* Active Aspect Ratio Frame & Mask (Only shown when ratio != 'full') */}
+            {aspectRatio !== 'full' && (
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+                <div
+                  className={`relative border-2 border-[#00B69A] rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] flex items-center justify-center transition-all ${
+                    aspectRatio === '4:3'
+                      ? 'w-[85vw] aspect-[4/3] max-h-[65vh]'
+                      : aspectRatio === '3:4'
+                      ? 'h-[65vh] aspect-[3/4] max-w-[85vw]'
+                      : aspectRatio === '1:1'
+                      ? 'w-[75vw] h-[75vw] max-w-[60vh] max-h-[60vh]'
+                      : aspectRatio === '16:9'
+                      ? 'w-[90vw] aspect-[16/9] max-h-[65vh]'
+                      : ''
+                  }`}
+                >
+                  <div className="w-full h-0.5 bg-[#00B69A]/30 animate-pulse" />
+                  {/* Corner Accent Indicators */}
+                  <div className="absolute -top-0.5 -left-0.5 w-4 h-4 border-t-2 border-l-2 border-[#00B69A] rounded-tl-sm" />
+                  <div className="absolute -top-0.5 -right-0.5 w-4 h-4 border-t-2 border-r-2 border-[#00B69A] rounded-tr-sm" />
+                  <div className="absolute -bottom-0.5 -left-0.5 w-4 h-4 border-b-2 border-l-2 border-[#00B69A] rounded-bl-sm" />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 border-b-2 border-r-2 border-[#00B69A] rounded-br-sm" />
+                </div>
+              </div>
+            )}
 
 
             {/* ID Cards Mode */}
