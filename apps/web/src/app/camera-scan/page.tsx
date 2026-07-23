@@ -2,9 +2,8 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  X, Zap, ZapOff, Grid, MoreVertical, Camera, RefreshCw, RotateCcw,
-  Crop, FileText, CheckCircle2, Download, Layers, ShieldCheck, Sparkles,
-  ArrowLeft, Check, Copy, Eye, CreditCard
+  X, Zap, ZapOff, Grid, Camera, RefreshCw, RotateCcw,
+  Crop, FileText, CheckCircle2, Download, Eye, Check, ArrowLeft, Sliders
 } from 'lucide-react';
 import { applyCameraFilter, CameraFilterMode } from '@/utils/cameraFilter';
 import { ScannerCropModal } from '@/components/ScannerCropModal';
@@ -27,8 +26,17 @@ interface ScannedPhoto {
 type ScanMode = 'scan' | 'id_card';
 type IDCardType = 'general' | 'driver_license' | 'id_card' | 'passport' | 'bank_card';
 
+const PAGE_DIMS: Record<string, [number, number]> = {
+  a4: [595.28, 841.89],
+  letter: [612, 792],
+  legal: [612, 1008],
+  a3: [841.89, 1190.55],
+  a5: [419.53, 595.28],
+};
+
 export default function CameraScanPage() {
   const { t } = useLanguage();
+
   // Mode States
   const [scanMode, setScanMode] = useState<ScanMode>('scan');
   const [captureBatchMode, setCaptureBatchMode] = useState<'single' | 'batch'>('single');
@@ -46,6 +54,13 @@ export default function CameraScanPage() {
   const [activeFilter, setActiveFilter] = useState<CameraFilterMode>('enhance'); // CamScanner Magic Color
   const [isComparingOriginal, setIsComparingOriginal] = useState(false);
 
+  // Advanced PDF Export Settings State
+  const [isPdfSettingsOpen, setIsPdfSettingsOpen] = useState(false);
+  const [pdfPageSize, setPdfPageSize] = useState<'original' | 'a4' | 'letter' | 'legal' | 'a3' | 'a5'>('a4');
+  const [pdfMargin, setPdfMargin] = useState<'none' | 'small' | 'normal'>('none');
+  const [pdfOrientation, setPdfOrientation] = useState<'auto' | 'portrait' | 'landscape'>('auto');
+  const [pdfQuality, setPdfQuality] = useState<'high' | 'medium' | 'compact'>('high');
+
   // Modals & Progress
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
@@ -56,23 +71,35 @@ export default function CameraScanPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // 1. Start Camera Stream
+  // 1. Start Camera Stream with mobile fallback
   const startCamera = async () => {
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      });
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        });
+      } catch {
+        // Fallback for mobile compatibility
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode },
+        });
+      }
 
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.muted = true;
+        await videoRef.current.play().catch(() => {});
       }
       setIsCameraActive(true);
     } catch (err: any) {
+      console.error('Camera Start Error:', err);
       toast.error('Gagal membuka kamera. Pastikan izin kamera telah diberikan.');
       setIsCameraActive(false);
     }
@@ -121,7 +148,6 @@ export default function CameraScanPage() {
     ctx.drawImage(video, 0, 0);
     const originalSrc = canvas.toDataURL('image/jpeg', 0.92);
 
-    // Apply CamScanner Magic Color Enhance filter by default
     const filteredSrc = await applyCameraFilter(originalSrc, activeFilter);
 
     const newPhoto: ScannedPhoto = {
@@ -168,7 +194,7 @@ export default function CameraScanPage() {
     stopCamera();
   };
 
-  // Change filter for current photo
+  // Select Filter
   const handleSelectFilter = async (mode: CameraFilterMode) => {
     setActiveFilter(mode);
     if (photos.length === 0) return;
@@ -182,7 +208,7 @@ export default function CameraScanPage() {
     );
   };
 
-  // Rotate current photo 90 deg
+  // Rotate photo
   const handleRotateCurrent = () => {
     if (photos.length === 0) return;
     setPhotos((prev) =>
@@ -192,34 +218,95 @@ export default function CameraScanPage() {
 
   const currentPhoto = photos[activePhotoIdx];
 
-  // Export to PDF
+  // Advanced PDF Generation
   const handleGeneratePDF = async () => {
     if (photos.length === 0) return;
 
     setIsProcessing(true);
     setDownloadUrl(null);
+    setIsPdfSettingsOpen(false);
 
     try {
       const pdfDoc = await PDFDocument.create();
+      const qualityRatio = pdfQuality === 'high' ? 0.92 : pdfQuality === 'medium' ? 0.78 : 0.60;
 
       for (let i = 0; i < photos.length; i++) {
         const photo = photos[i];
-        const res = await fetch(photo.filteredSrc);
-        const imgBuffer = await res.arrayBuffer();
 
+        let finalDataUrl = photo.filteredSrc;
+        if (pdfQuality !== 'high') {
+          const img = new Image();
+          img.src = photo.filteredSrc;
+          await new Promise((res) => { img.onload = res; });
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            finalDataUrl = canvas.toDataURL('image/jpeg', qualityRatio);
+          }
+        }
+
+        const res = await fetch(finalDataUrl);
+        const imgBuffer = await res.arrayBuffer();
         const embeddedJpg = await pdfDoc.embedJpg(imgBuffer);
 
-        let width = embeddedJpg.width;
-        let height = embeddedJpg.height;
+        let imgW = embeddedJpg.width;
+        let imgH = embeddedJpg.height;
 
-        const page = pdfDoc.addPage([width, height]);
-        page.drawImage(embeddedJpg, {
-          x: 0,
-          y: 0,
-          width,
-          height,
-          rotate: photo.rotation !== 0 ? degrees(photo.rotation) : undefined,
-        });
+        let pageWidth = imgW;
+        let pageHeight = imgH;
+
+        if (pdfPageSize !== 'original') {
+          const baseDims = PAGE_DIMS[pdfPageSize] || PAGE_DIMS.a4;
+          const [w, h] = baseDims;
+
+          if (pdfOrientation === 'portrait') {
+            pageWidth = Math.min(w, h);
+            pageHeight = Math.max(w, h);
+          } else if (pdfOrientation === 'landscape') {
+            pageWidth = Math.max(w, h);
+            pageHeight = Math.min(w, h);
+          } else {
+            if (imgW > imgH) {
+              pageWidth = Math.max(w, h);
+              pageHeight = Math.min(w, h);
+            } else {
+              pageWidth = Math.min(w, h);
+              pageHeight = Math.max(w, h);
+            }
+          }
+        }
+
+        const page = pdfDoc.addPage([pageWidth, pageHeight]);
+        const marginPt = pdfMargin === 'small' ? 14.17 : pdfMargin === 'normal' ? 28.35 : 0;
+
+        if (pdfPageSize === 'original' && marginPt === 0) {
+          page.drawImage(embeddedJpg, {
+            x: 0,
+            y: 0,
+            width: imgW,
+            height: imgH,
+            rotate: photo.rotation !== 0 ? degrees(photo.rotation) : undefined,
+          });
+        } else {
+          const availW = pageWidth - marginPt * 2;
+          const availH = pageHeight - marginPt * 2;
+          const scale = Math.min(availW / imgW, availH / imgH);
+          const drawW = imgW * scale;
+          const drawH = imgH * scale;
+          const x = marginPt + (availW - drawW) / 2;
+          const y = marginPt + (availH - drawH) / 2;
+
+          page.drawImage(embeddedJpg, {
+            x,
+            y,
+            width: drawW,
+            height: drawH,
+            rotate: photo.rotation !== 0 ? degrees(photo.rotation) : undefined,
+          });
+        }
 
         setProgress({ current: i + 1, total: photos.length });
       }
@@ -231,7 +318,7 @@ export default function CameraScanPage() {
 
       const filename = `CamScanner_${Date.now()}.pdf`;
       await saveHistoryItem(filename, 'Camera Scan to PDF', blob);
-      toast.success('PDF Scanner berhasil dibuat!');
+      toast.success(t('successTitle'));
     } catch (err: any) {
       toast.error(err.message || 'Gagal menyusun PDF.');
     } finally {
@@ -244,37 +331,29 @@ export default function CameraScanPage() {
     <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between font-sans select-none overflow-x-hidden">
       {/* -------------------- PHASE 1: CAMERA VIEWFINDER -------------------- */}
       {isCameraActive && (
-        <div className="relative flex-1 flex flex-col justify-between bg-black">
-          {/* Top Bar */}
+        <div className="relative flex-1 flex flex-col justify-between bg-black min-h-[85vh]">
+          {/* Top Bar (Cleaned up: Removed HD & 3-dots as requested) */}
           <div className="absolute top-0 inset-x-0 z-30 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
             <button onClick={stopCamera} className="p-2 text-white hover:opacity-80">
               <X className="w-6 h-6" />
             </button>
 
             <div className="flex items-center gap-6">
-              <button onClick={toggleFlash} className="p-1 text-white">
+              <button onClick={toggleFlash} className="p-2 text-white">
                 {flashOn ? <Zap className="w-5 h-5 text-amber-400 fill-amber-400" /> : <ZapOff className="w-5 h-5 text-slate-400" />}
               </button>
 
-              <button onClick={() => setShowGrid(!showGrid)} className="p-1">
+              <button onClick={() => setShowGrid(!showGrid)} className="p-2">
                 <Grid className={`w-5 h-5 ${showGrid ? 'text-[#00B69A]' : 'text-slate-400'}`} />
-              </button>
-
-              <span className="px-2 py-0.5 border border-[#00B69A] text-[#00B69A] text-[10px] font-extrabold rounded">
-                HD
-              </span>
-
-              <button className="p-1 text-slate-400">
-                <MoreVertical className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          {/* Camera Video Stream & Alignment Overlays */}
+          {/* Camera Stream & Overlays */}
           <div className="relative flex-1 flex items-center justify-center bg-black overflow-hidden">
-            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
 
-            {/* Rule-of-thirds Alignment Grid */}
+            {/* Grid */}
             {showGrid && (
               <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-25 border border-white/40">
                 {Array.from({ length: 9 }).map((_, i) => (
@@ -283,12 +362,12 @@ export default function CameraScanPage() {
               </div>
             )}
 
-            {/* Live Document Detection Frame Overlay */}
+            {/* Frame Overlay */}
             <div className="absolute inset-8 sm:inset-16 border-2 border-[#00B69A] rounded-2xl pointer-events-none shadow-[0_0_20px_rgba(0,182,154,0.3)] flex items-center justify-center">
               <div className="w-full h-0.5 bg-[#00B69A]/30 animate-pulse" />
             </div>
 
-            {/* Single vs Batch Floating Pill */}
+            {/* Single vs Batch */}
             {scanMode === 'scan' && (
               <div className="absolute bottom-6 z-20 flex bg-slate-900/80 backdrop-blur-md rounded-full p-1 border border-slate-800">
                 <button
@@ -310,7 +389,7 @@ export default function CameraScanPage() {
               </div>
             )}
 
-            {/* ID Cards Mode Options */}
+            {/* ID Cards Mode */}
             {scanMode === 'id_card' && (
               <div className="absolute bottom-4 z-20 flex gap-2 overflow-x-auto px-4 max-w-full">
                 {[
@@ -333,9 +412,8 @@ export default function CameraScanPage() {
             )}
           </div>
 
-          {/* Bottom Mode Carousel & Shutter Area */}
+          {/* Shutter Bar */}
           <div className="bg-black pb-8 pt-4 px-6 flex flex-col items-center gap-4">
-            {/* Mode Carousel */}
             <div className="flex items-center gap-6 text-xs font-bold tracking-wider text-slate-400 uppercase">
               <button onClick={() => setScanMode('scan')} className={scanMode === 'scan' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-1' : ''}>
                 Scan
@@ -345,17 +423,15 @@ export default function CameraScanPage() {
               </button>
             </div>
 
-            {/* Shutter Bar */}
             <div className="w-full flex items-center justify-between">
               <label className="cursor-pointer flex flex-col items-center text-slate-400 hover:text-white">
-                <div className="p-2.5 bg-slate-900 rounded-2xl mb-1">
-                  <Layers className="w-6 h-6 text-slate-300" />
+                <div className="p-2.5 bg-slate-900 rounded-2xl mb-1 border border-slate-800">
+                  <FileText className="w-6 h-6 text-slate-300" />
                 </div>
                 <span className="text-[10px]">Import Files</span>
                 <input type="file" accept="image/*,application/pdf" multiple onChange={handleImportFiles} className="hidden" />
               </label>
 
-              {/* Shutter Button */}
               <button
                 onClick={handleCapture}
                 className="w-20 h-20 rounded-full border-4 border-[#00B69A] p-1 flex items-center justify-center transition-transform active:scale-95 shadow-[0_0_25px_rgba(0,182,154,0.4)]"
@@ -375,7 +451,7 @@ export default function CameraScanPage() {
                 </button>
               ) : (
                 <button onClick={() => setFacingMode(facingMode === 'user' ? 'environment' : 'user')} className="flex flex-col items-center text-slate-400">
-                  <div className="p-2.5 bg-slate-900 rounded-2xl mb-1">
+                  <div className="p-2.5 bg-slate-900 rounded-2xl mb-1 border border-slate-800">
                     <RefreshCw className="w-6 h-6 text-slate-300" />
                   </div>
                   <span className="text-[10px]">Switch</span>
@@ -383,6 +459,31 @@ export default function CameraScanPage() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Manual Start Camera Fallback if Inactive & No Photos */}
+      {!isCameraActive && photos.length === 0 && (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-950 text-center min-h-[70vh]">
+          <div className="p-6 bg-slate-900 rounded-3xl border border-slate-800 mb-6 shadow-xl">
+            <Camera className="w-16 h-16 text-[#00B69A] mx-auto mb-3 animate-bounce" />
+            <h2 className="text-2xl font-bold text-white mb-2">CamScanner Studio</h2>
+            <p className="text-sm text-slate-400 max-w-sm mx-auto mb-6">
+              Pindai dokumen fisik atau foto dengan filter jernih Magic Color khas CamScanner.
+            </p>
+            <button
+              onClick={startCamera}
+              className="w-full py-4 bg-[#00B69A] hover:bg-[#00a38a] text-white font-bold text-base rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2"
+            >
+              <Camera className="w-5 h-5" />
+              <span>Buka Kamera Sekarang</span>
+            </button>
+          </div>
+
+          <label className="cursor-pointer text-xs font-semibold text-slate-400 hover:text-white underline">
+            atau Impor Gambar dari Galeri
+            <input type="file" accept="image/*,.pdf" multiple onChange={handleImportFiles} className="hidden" />
+          </label>
         </div>
       )}
 
@@ -415,7 +516,6 @@ export default function CameraScanPage() {
                   style={{ transform: `rotate(${currentPhoto.rotation}deg)` }}
                 />
 
-                {/* Compare Hold Button */}
                 <button
                   onMouseDown={() => setIsComparingOriginal(true)}
                   onMouseUp={() => setIsComparingOriginal(false)}
@@ -478,13 +578,115 @@ export default function CameraScanPage() {
               <span className="text-[10px]">Extract Text</span>
             </button>
 
-            {/* Save Checkmark */}
+            {/* Checkmark triggers Advanced PDF Settings */}
             <button
-              onClick={handleGeneratePDF}
+              onClick={() => setIsPdfSettingsOpen(true)}
               className="w-12 h-12 bg-[#00B69A] hover:bg-[#00a38a] text-white rounded-2xl flex items-center justify-center shadow-lg transition-transform active:scale-95"
             >
               <Check className="w-6 h-6" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------- ADVANCED PDF EXPORT SETTINGS MODAL -------------------- */}
+      {isPdfSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-white">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-[#00B69A]" />
+                <h3 className="font-bold text-lg">{t('pdfSettingsTitle')}</h3>
+              </div>
+              <button onClick={() => setIsPdfSettingsOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Paper Size */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  {t('pageSize')}
+                </label>
+                <select
+                  value={pdfPageSize}
+                  onChange={(e) => setPdfPageSize(e.target.value as any)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:ring-2 focus:ring-[#00B69A] outline-none"
+                >
+                  <option value="original">Original (Fit Image Size)</option>
+                  <option value="a4">A4 (210 x 297 mm)</option>
+                  <option value="letter">Letter (US, 8.5 x 11 in)</option>
+                  <option value="legal">Legal (US, 8.5 x 14 in)</option>
+                  <option value="a3">A3 (297 x 420 mm)</option>
+                  <option value="a5">A5 (148 x 210 mm)</option>
+                </select>
+              </div>
+
+              {/* Page Margin */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  {t('pdfMarginLabel')}
+                </label>
+                <select
+                  value={pdfMargin}
+                  onChange={(e) => setPdfMargin(e.target.value as any)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:ring-2 focus:ring-[#00B69A] outline-none"
+                >
+                  <option value="none">{t('marginNone')}</option>
+                  <option value="small">{t('marginSmall')}</option>
+                  <option value="normal">{t('marginNormal')}</option>
+                </select>
+              </div>
+
+              {/* Page Orientation */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  {t('orientation')}
+                </label>
+                <select
+                  value={pdfOrientation}
+                  onChange={(e) => setPdfOrientation(e.target.value as any)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:ring-2 focus:ring-[#00B69A] outline-none"
+                >
+                  <option value="auto">{t('orientAuto')}</option>
+                  <option value="portrait">{t('orientPortrait')}</option>
+                  <option value="landscape">{t('orientLandscape')}</option>
+                </select>
+              </div>
+
+              {/* Image Quality / Compression */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  {t('quality')}
+                </label>
+                <select
+                  value={pdfQuality}
+                  onChange={(e) => setPdfQuality(e.target.value as any)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:ring-2 focus:ring-[#00B69A] outline-none"
+                >
+                  <option value="high">{t('qualityHigh')}</option>
+                  <option value="medium">{t('qualityMedium')}</option>
+                  <option value="compact">{t('qualityCompact')}</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-6 mt-4 border-t border-slate-800">
+              <button
+                onClick={() => setIsPdfSettingsOpen(false)}
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleGeneratePDF}
+                className="flex-1 py-3 bg-[#00B69A] hover:bg-[#00a38a] text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center gap-1.5"
+              >
+                <Download className="w-4 h-4" />
+                <span>{t('generateAndDownload')}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -495,7 +697,6 @@ export default function CameraScanPage() {
           <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 text-center max-w-md">
             <CheckCircle2 className="w-14 h-14 text-[#00B69A] mx-auto mb-3" />
             <h3 className="text-xl font-bold text-white mb-2 flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-6 h-6 text-[#00B69A]" />
               <span>PDF Scan Ready</span>
             </h3>
             <p className="text-xs text-slate-400 mb-6">Dokumen hasil scanner CamScanner siap diunduh.</p>
