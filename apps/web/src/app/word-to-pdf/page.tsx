@@ -5,7 +5,8 @@ import { SortableGrid, PDFDocument } from '@/components/SortableGrid';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import toast from 'react-hot-toast';
-import { Check, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Check, AlertTriangle, CheckCircle2, Download } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 // ── Yield to browser event loop ───────────────────────────────────────────────
 const yieldToBrowser = () => new Promise<void>((r) => setTimeout(r, 0));
@@ -558,7 +559,6 @@ class PdfRenderer {
         const cx = MARGIN + ci * cellW;
         if (row.isHeader) { this.pdf.setFillColor(220, 228, 245); this.pdf.rect(cx, this.y, cellW, rowH, 'FD'); }
         else              { this.pdf.setFillColor(255, 255, 255); this.pdf.rect(cx, this.y, cellW, rowH, 'D'); }
-
         const text = row.cells[ci] ?? '';
         this.pdf.setFont('helvetica', row.isHeader ? 'bold' : 'normal');
         this.pdf.setFontSize(fs);
@@ -657,6 +657,7 @@ async function convertWordToPdf(
 
 // ── React Component ───────────────────────────────────────────────────────────
 export default function WordToPdfPage() {
+  const { t } = useLanguage();
   const [documents, setDocuments] = useState<PDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState<{ step: string; pct: number } | null>(null);
@@ -665,33 +666,31 @@ export default function WordToPdfPage() {
 
   const handleAddFiles = (files: FileList | File[]) => {
     setDownloadUrl(null);
-    setDocuments(prev => [...prev, ...Array.from(files).map(f => ({
-      id: crypto.randomUUID(), file: f, thumbnail: null,
-    }))]);
+    const newDocs: PDFDocument[] = Array.from(files).map(file => ({
+      id: crypto.randomUUID(), file, thumbnail: null,
+    }));
+    setDocuments(prev => [...prev, ...newDocs]);
   };
 
   const handleConvert = async () => {
-    if (documents.length === 0) { toast.error('Pilih minimal 1 file Word.'); return; }
-
-    const totalMB = documents.reduce((s, d) => s + d.file.size, 0) / 1048576;
-    if (totalMB > 200)
-      toast(`File besar (${totalMB.toFixed(0)} MB) — proses mungkin beberapa menit, jangan tutup tab.`, { duration: 7000, icon: '⏳' });
-
+    if (documents.length === 0) { toast.error(t('noFilesSelected')); return; }
     setIsProcessing(true);
     setDownloadUrl(null);
     setProgress(null);
 
     try {
       const results: { name: string; blob: Blob }[] = [];
-
       for (const doc of documents) {
-        const blob = await convertWordToPdf(doc.file, (step, pct) => setProgress({ step, pct }));
-        results.push({ name: `${doc.file.name.replace(/\.[^/.]+$/, '')}.pdf`, blob });
+        const baseName = doc.file.name.replace(/\.[^/.]+$/, '');
+        const blob = await convertWordToPdf(doc.file, (step, pct) => {
+          setProgress({ step: `${doc.file.name}: ${step}`, pct });
+        });
+        results.push({ name: `${baseName}.pdf`, blob });
       }
 
       if (results.length === 1) {
         setDownloadUrl(URL.createObjectURL(results[0].blob));
-        setDownloadFilename(`${documents[0].file.name.replace(/\.[^/.]+$/, '')} (Converted).pdf`);
+        setDownloadFilename(results[0].name);
       } else {
         const zip = new JSZip();
         results.forEach(r => zip.file(r.name, r.blob));
@@ -700,7 +699,7 @@ export default function WordToPdfPage() {
         setDownloadFilename(`Word_to_PDF_${Date.now()}.zip`);
       }
 
-      toast.success('Berhasil dikonversi ke PDF!');
+      toast.success(t('successTitle'));
     } catch (e: any) {
       toast.error(e.message || 'Gagal memproses file.');
     } finally {
@@ -710,24 +709,25 @@ export default function WordToPdfPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
       <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight sm:text-5xl">Word ke PDF</h1>
-          <p className="mt-4 max-w-2xl text-xl text-slate-500 mx-auto">
-            Ubah .docx menjadi PDF dengan teks selectable. Mendukung tabel, gambar, bold/italic,
-            underline, strikethrough, link, kode, heading, list, dan lebih. (100% di perangkat Anda)
+          <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight sm:text-5xl">
+            {t('wordToPdfTitle')}
+          </h1>
+          <p className="mt-4 max-w-2xl text-xl text-slate-500 dark:text-slate-400 mx-auto">
+            {t('wordToPdfDesc')}
           </p>
         </div>
 
         <SortableGrid
           items={documents} setItems={setDocuments} onAddFiles={handleAddFiles}
           accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
-          uploadLabel="Pilih File Word"
+          uploadLabel={t('selectFiles')}
         />
 
         {documents.length > 0 && !downloadUrl && (
-          <div className="max-w-3xl mx-auto mt-12 bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+          <div className="max-w-3xl mx-auto mt-12 bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
 
             {!isProcessing && (
               <div className="mb-6 grid grid-cols-2 gap-3 text-sm">
@@ -759,12 +759,12 @@ export default function WordToPdfPage() {
 
             {isProcessing && progress && (
               <div className="mb-6">
-                <div className="flex justify-between text-sm text-slate-500 mb-2">
+                <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 mb-2">
                   <span>{progress.step}</span>
                   <span>{progress.pct}%</span>
                 </div>
-                <div className="w-full bg-slate-200 rounded-full h-3">
-                  <div className="bg-blue-500 h-3 rounded-full transition-all duration-300" style={{ width: `${progress.pct}%` }} />
+                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-3">
+                  <div className="bg-indigo-600 dark:bg-indigo-500 h-3 rounded-full transition-all duration-300" style={{ width: `${progress.pct}%` }} />
                 </div>
               </div>
             )}

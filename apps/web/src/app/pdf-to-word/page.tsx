@@ -11,6 +11,7 @@ import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import toast from 'react-hot-toast';
 import { Check, FileText, Image as ImageIcon, CheckCircle2, Download } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const Y_TOL           = 3;     // pts — items within this Y = same line
@@ -323,6 +324,7 @@ async function ocrPageToDocx(page: any, lang: string): Promise<(Paragraph | Tabl
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PdfToWordPage() {
+  const { t } = useLanguage();
   const [documents, setDocuments]     = useState<LocalPDFDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress]       = useState<{ page: number; total: number; label?: string } | null>(null);
@@ -555,20 +557,21 @@ export default function PdfToWordPage() {
   const pct = progress ? Math.round((progress.page / progress.total) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
       <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight sm:text-5xl">PDF ke Word</h1>
-          <p className="mt-4 max-w-2xl text-xl text-slate-500 mx-auto">
-            Ubah PDF menjadi .docx yang bisa diedit. Mendukung OCR untuk PDF scan dan ekstraksi gambar.
-            (100% di perangkat Anda)
+          <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight sm:text-5xl">
+            {t('pdfToWordTitle')}
+          </h1>
+          <p className="mt-4 max-w-2xl text-xl text-slate-500 dark:text-slate-400 mx-auto">
+            {t('pdfToWordDesc')}
           </p>
         </div>
 
         <SortableGrid items={documents} setItems={setDocuments} onAddFiles={handleAddFiles} />
 
         {documents.length > 0 && !downloadUrl && (
-          <div className="max-w-3xl mx-auto mt-12 bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+          <div className="max-w-3xl mx-auto mt-12 bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
 
             {/* Feature list */}
             {!isProcessing && (
@@ -592,21 +595,21 @@ export default function PdfToWordPage() {
                 </div>
 
                 {/* Settings panel */}
-                <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
 
                   {/* Render Mode - most important toggle */}
                   <div>
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Mode Konversi</p>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{t('conversionMode')}</p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setPageRenderMode('text')}
-                        className={`p-3 rounded-xl border-2 text-left transition-all ${pageRenderMode === 'text' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${pageRenderMode === 'text' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}
                       >
-                        <p className={`text-sm font-semibold flex items-center gap-1.5 ${pageRenderMode === 'text' ? 'text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                        <p className={`text-sm font-semibold flex items-center gap-1.5 ${pageRenderMode === 'text' ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-300'}`}>
                           <FileText className="w-4 h-4" />
-                          <span>Mode Teks</span>
+                          <span>{t('modeText')}</span>
                         </p>
-                        <p className="text-xs text-slate-400 mt-0.5 leading-snug">Ekstrak teks — cocok untuk dokumen, laporan, artikel</p>
+                        <p className="text-xs text-slate-400 mt-0.5 leading-snug">{t('modeTextDesc')}</p>
                       </button>
                       <button
                         onClick={() => setPageRenderMode('image')}
@@ -614,70 +617,43 @@ export default function PdfToWordPage() {
                       >
                         <p className={`text-sm font-semibold flex items-center gap-1.5 ${pageRenderMode === 'image' ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}`}>
                           <ImageIcon className="w-4 h-4" />
-                          <span>Mode Gambar</span>
+                          <span>{t('modeImage')}</span>
                         </p>
-                        <p className="text-xs text-slate-400 mt-0.5 leading-snug">Render halaman — cocok untuk <strong>presentasi, desain, brosur</strong></p>
+                        <p className="text-xs text-slate-400 mt-0.5 leading-snug">{t('modeImageDesc')}</p>
                       </button>
                     </div>
-                    {pageRenderMode === 'image' && (
-                      <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 rounded-lg px-3 py-2 border border-emerald-200 dark:border-emerald-900">
-                        Setiap halaman PDF akan dirender menjadi gambar — layout, gambar, dan warna terjaga 100%. Teks tidak bisa diedit, tapi tampilan persis sama seperti PDF asli.
-                      </p>
-                    )}
                   </div>
 
-                  {/* Extract images toggle — only in text mode */}
+                  {/* Extract images toggle */}
                   {pageRenderMode === 'text' && (
                     <label className="flex items-center justify-between cursor-pointer">
                       <div>
-                        <p className="text-sm font-semibold text-slate-700">Ekstrak Gambar dari PDF</p>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Ekstrak Gambar dari PDF</p>
                         <p className="text-xs text-slate-400 mt-0.5">Gambar yang ada di PDF akan disertakan di Word</p>
                       </div>
                       <button
                         onClick={() => setExtractImages(!extractImages)}
-                        className={`relative w-12 h-6 rounded-full transition-colors ${extractImages ? 'bg-blue-500' : 'bg-slate-300'}`}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${extractImages ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700'}`}
                       >
                         <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${extractImages ? 'left-7' : 'left-1'}`} />
                       </button>
                     </label>
                   )}
 
-                  {/* OCR toggle — only in text mode */}
+                  {/* OCR toggle */}
                   {pageRenderMode === 'text' && (
                     <label className="flex items-center justify-between cursor-pointer">
                       <div>
-                        <p className="text-sm font-semibold text-slate-700">Mode OCR (PDF Scan / Foto)</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Baca teks dari PDF yang berbasis gambar (lebih lambat)</p>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Mode OCR (PDF Scan / Foto)</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Baca teks dari PDF yang berbasis gambar</p>
                       </div>
                       <button
                         onClick={() => setEnableOCR(!enableOCR)}
-                        className={`relative w-12 h-6 rounded-full transition-colors ${enableOCR ? 'bg-purple-500' : 'bg-slate-300'}`}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${enableOCR ? 'bg-purple-500' : 'bg-slate-300 dark:bg-slate-700'}`}
                       >
                         <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${enableOCR ? 'left-7' : 'left-1'}`} />
                       </button>
                     </label>
-                  )}
-
-                  {/* OCR language selector */}
-                  {pageRenderMode === 'text' && enableOCR && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-600 mb-2">Bahasa OCR</p>
-                      <select
-                        value={ocrLang}
-                        onChange={e => setOcrLang(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"
-                      >
-                        <option value="ind+eng">Indonesia + English</option>
-                        <option value="ind">Indonesia saja</option>
-                        <option value="eng">English saja</option>
-                        <option value="chi_sim+eng">Chinese (Simplified) + English</option>
-                        <option value="jpn+eng">Japanese + English</option>
-                        <option value="ara">Arabic</option>
-                      </select>
-                      <p className="mt-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-                        ⏳ OCR membutuhkan waktu 5–30 detik per halaman tergantung ukuran dan bahasa. Halaman berteks normal akan tetap diproses cepat.
-                      </p>
-                    </div>
                   )}
                 </div>
               </>
@@ -686,43 +662,44 @@ export default function PdfToWordPage() {
             {/* Progress bar */}
             {isProcessing && progress && (
               <div className="mb-6">
-                <div className="flex justify-between text-sm text-slate-500 mb-2">
-                  <span>{progress.label ?? `Memproses halaman ${progress.page} dari ${progress.total}…`}</span>
+                <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 mb-2">
+                  <span>{progress.label ?? `Memproses halaman ${progress.page} dari ${progress.total}...`}</span>
                   <span>{pct}%</span>
                 </div>
-                <div className="w-full bg-slate-200 rounded-full h-3">
+                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-3">
                   <div
-                    className={`h-3 rounded-full transition-all duration-300 ${enableOCR ? 'bg-purple-500' : 'bg-blue-500'}`}
+                    className={`h-3 rounded-full transition-all duration-300 ${enableOCR ? 'bg-purple-500' : 'bg-indigo-500'}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
               </div>
             )}
             {isProcessing && !progress && (
-              <div className="w-full bg-slate-200 rounded-full h-3 mb-6">
-                <div className="bg-blue-500 h-3 rounded-full animate-pulse w-full" />
+              <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-3 mb-6">
+                <div className="bg-indigo-500 h-3 rounded-full animate-pulse w-full" />
               </div>
             )}
 
             <div className="flex justify-center">
               <button onClick={handleConvert} disabled={isProcessing}
-                className={`w-full sm:w-auto px-12 py-4 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50 ${enableOCR ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                {isProcessing ? 'Memproses di perangkat…' : 'Konversi ke Word'}
+                className={`w-full sm:w-auto px-12 py-4 text-white font-bold text-lg rounded-2xl shadow-lg transition-all disabled:opacity-50 ${enableOCR ? 'bg-purple-600 hover:bg-purple-700' : 'bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600'}`}>
+                {isProcessing ? t('processing') : t('pdfToWordTitle')}
               </button>
             </div>
           </div>
         )}
 
         {downloadUrl && (
-          <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 dark:bg-emerald-950/40 border border-green-200 dark:border-emerald-900 rounded-3xl flex flex-col items-center">
+          <div className="mt-8 max-w-3xl mx-auto p-8 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-3xl flex flex-col items-center text-center animate-in fade-in zoom-in duration-300">
             <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400 mb-3" />
-            <h3 className="text-2xl font-bold text-green-800 dark:text-emerald-200 mb-3">Berhasil Dikonversi!</h3>
+            <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-200 mb-3">{t('successTitle')}</h3>
             <button onClick={() => saveAs(downloadUrl, downloadFilename)}
-              className="w-full sm:w-auto px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
-              Unduh Word
+              className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg rounded-2xl shadow-md transition-all flex items-center justify-center gap-2">
+              <Download className="w-5 h-5" />
+              <span>{t('download')}</span>
             </button>
             <button onClick={() => { setDownloadUrl(null); setDocuments([]); }}
-              className="mt-4 text-green-700 text-sm underline">Konversi file lainnya</button>
+              className="mt-4 text-emerald-700 dark:text-emerald-400 text-sm underline hover:opacity-80">{t('convertAnother')}</button>
           </div>
         )}
       </main>

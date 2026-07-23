@@ -12,8 +12,10 @@ import { GranularProgressModal } from '@/components/GranularProgressModal';
 import { SmartPasswordModal } from '@/components/SmartPasswordModal';
 import { Stamp, Hash, Type, Image as ImageIcon, Sliders, CheckCircle2, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function WatermarkNumberingPage() {
+  const { t } = useLanguage();
   const [documents, setDocuments] = useState<LocalPDFDocument[]>([]);
   const [activeTab, setActiveTab] = useState<'numbering' | 'watermark'>('numbering');
 
@@ -154,10 +156,10 @@ export default function WatermarkNumberingPage() {
             <Stamp className="w-8 h-8" />
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Nomor Halaman & Watermark
+            {t('watermarkTitle')}
           </h1>
           <p className="mt-3 max-w-2xl text-base sm:text-lg text-slate-600 dark:text-slate-400 mx-auto">
-            Tambahkan penanda otomatis, nomor halaman kustom, dan tanda air (teks miring / logo transparan) pada dokumen PDF Anda.
+            {t('watermarkDesc')}
           </p>
         </div>
 
@@ -176,7 +178,7 @@ export default function WatermarkNumberingPage() {
                 }`}
               >
                 <Hash className="w-4 h-4" />
-                <span>Nomor Halaman</span>
+                <span>{t('tabNumbering')}</span>
               </button>
               <button
                 onClick={() => setActiveTab('watermark')}
@@ -187,7 +189,7 @@ export default function WatermarkNumberingPage() {
                 }`}
               >
                 <Stamp className="w-4 h-4" />
-                <span>Watermark</span>
+                <span>{t('tabWatermark')}</span>
               </button>
             </div>
 

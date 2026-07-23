@@ -14,6 +14,7 @@ import { saveAs } from 'file-saver';
 import { saveHistoryItem } from '@/utils/historyDB';
 import { GranularProgressModal } from '@/components/GranularProgressModal';
 import toast from 'react-hot-toast';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface ScannedPhoto {
   id: string;
@@ -27,6 +28,7 @@ type ScanMode = 'scan' | 'id_card';
 type IDCardType = 'general' | 'driver_license' | 'id_card' | 'passport' | 'bank_card';
 
 export default function CameraScanPage() {
+  const { t } = useLanguage();
   // Mode States
   const [scanMode, setScanMode] = useState<ScanMode>('scan');
   const [captureBatchMode, setCaptureBatchMode] = useState<'single' | 'batch'>('single');

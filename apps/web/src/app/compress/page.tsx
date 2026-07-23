@@ -232,7 +232,7 @@ export default function CompressPage() {
             {t('compressTitle')}
           </h1>
           <p className="mt-4 max-w-2xl text-xl text-slate-500 dark:text-slate-400 mx-auto">
-            Perkecil ukuran file PDF sesuai kebutuhan. (100% di perangkat Anda, tanpa upload ke server)
+            {t('compressDesc')}
           </p>
         </div>
 

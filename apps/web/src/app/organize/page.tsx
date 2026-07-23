@@ -12,8 +12,10 @@ import { FloatingActionBar } from '@/components/FloatingActionBar';
 import { HoverPreviewLens } from '@/components/HoverPreviewLens';
 import { LayoutGrid, RotateCw, Trash2, Plus, Download, FileText, CheckCircle2, FilePlus } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function OrganizePage() {
+  const { t } = useLanguage();
   const [sourceFiles, setSourceFiles] = useState<File[]>([]);
   const [pages, setPages] = useState<PageItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -225,10 +227,10 @@ export default function OrganizePage() {
             <LayoutGrid className="w-8 h-8" />
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Atur Halaman PDF (Organizer & Extractor)
+            {t('organizeTitle')}
           </h1>
           <p className="mt-3 max-w-2xl text-base sm:text-lg text-slate-600 dark:text-slate-400 mx-auto">
-            Grid interaktif per-halaman. Hapus, putar, selipkan halaman kosong, urutkan bebas, atau ekstrak halaman terpilih.
+            {t('organizeDesc')}
           </p>
         </div>
 
@@ -248,13 +250,13 @@ export default function OrganizePage() {
                 <FilePlus className="w-10 h-10" />
               </div>
               <span className="text-xl font-bold text-slate-800 dark:text-white mb-1">
-                Pilih Dokumen PDF
+                {t('selectFiles')}
               </span>
               <span className="text-sm text-slate-500 dark:text-slate-400">
-                atau tarik file ke sini (bisa lebih dari 1 file)
+                {t('dropFiles')}
               </span>
               <span className="text-xs text-cyan-600 dark:text-cyan-400 font-semibold mt-4">
-                Tip: Tekan Ctrl+V untuk menempel file dari clipboard
+                {t('pasteTip')}
               </span>
             </label>
           </div>

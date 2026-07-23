@@ -12,39 +12,37 @@ const TRANSLATIONS = {
     sessionHistory: "Riwayat Sesi",
     themeToggle: "Ganti Tema",
     langToggle: "Bahasa",
-    
+
     // Tools Titles & Descriptions
     mergeTitle: "Gabungkan PDF",
-    mergeDesc: "Gabungkan PDF dengan urutan yang Anda inginkan.",
+    mergeDesc: "Gabungkan beberapa dokumen PDF menjadi satu file sesuai urutan pilihan Anda.",
     splitTitle: "Pisahkan PDF",
-    splitDesc: "Pisahkan satu halaman atau semuanya agar mudah dikonversi.",
+    splitDesc: "Pisahkan satu halaman atau ekstrak rentang halaman tertentu menjadi PDF terpisah.",
     compressTitle: "Kompres PDF",
-    compressDesc: "Kurangi ukuran file dengan tetap mengoptimalkan kualitas PDF.",
+    compressDesc: "Kurangi ukuran file PDF secara signifikan dengan optimasi kualitas visual di browser.",
     pdfToWordTitle: "PDF ke Word",
-    pdfToWordDesc: "Konversi file PDF menjadi dokumen Word yang mudah diedit.",
+    pdfToWordDesc: "Konversi file PDF menjadi dokumen Word (DOCX) yang dapat diedit secara langsung.",
     wordToPdfTitle: "Word ke PDF",
-    wordToPdfDesc: "Buat file Word dikonversi menjadi dokumen PDF.",
+    wordToPdfDesc: "Konversi dokumen Word (DOCX) menjadi dokumen PDF dengan tata letak rapi.",
     rotateTitle: "Putar PDF",
-    rotateDesc: "Putar halaman PDF sesuai kebutuhan.",
+    rotateDesc: "Putar orientasi halaman PDF 90° atau 180° sekaligus dengan cepat.",
     pdfToJpgTitle: "PDF ke JPG",
-    pdfToJpgDesc: "Konversi setiap halaman PDF ke gambar JPG.",
+    pdfToJpgDesc: "Ekstrak setiap halaman dokumen PDF menjadi file gambar berkualitas tinggi (JPG).",
     jpgToPdfTitle: "JPG ke PDF",
-    jpgToPdfDesc: "Konversi gambar JPG menjadi file dokumen PDF.",
+    jpgToPdfDesc: "Konversi kumpulan gambar JPG/PNG menjadi satu dokumen PDF.",
     pdfToMdTitle: "PDF ke Markdown",
-    pdfToMdDesc: "Ekstrak teks dan struktur PDF ke format Markdown.",
-    
-    // New Tools
+    pdfToMdDesc: "Ekstrak teks, paragraf, dan struktur tabel PDF menjadi format Markdown (.md).",
     watermarkTitle: "Nomor Halaman & Watermark",
-    watermarkDesc: "Tambahkan nomor halaman dan tanda air (watermark) teks atau logo transparan.",
+    watermarkDesc: "Tambahkan penomoran halaman otomatis atau watermark teks/logo transparan.",
     organizeTitle: "Atur Halaman PDF",
     organizeDesc: "Grid interaktif per-halaman untuk sortir, hapus, putar, selipkan halaman kosong, & ekstrak.",
     cameraScanTitle: "Pindai ke PDF (Kamera)",
     cameraScanDesc: "Pindai dokumen fisik dengan kamera HP/Webcam dan konversi langsung ke PDF.",
 
-    // General UI
+    // General UI & Controls
     selectFiles: "Pilih File PDF",
     dropFiles: "atau tarik file ke sini",
-    pasteTip: "Tip: Tekan Ctrl+V (atau Cmd+V) untuk menempel file langsung dari clipboard",
+    pasteTip: "Tip: Tekan Ctrl+V (atau Cmd+V) untuk menempel file dari clipboard",
     clearAll: "Hapus Semua",
     selectAll: "Pilih Semua",
     deselectAll: "Batal Pilih",
@@ -53,7 +51,7 @@ const TRANSLATIONS = {
     reverseOrder: "Balikkan Urutan",
     selectedItems: "terpilih",
     download: "Unduh Hasil",
-    processing: "Memproses...",
+    processing: "Memproses di perangkat...",
     oddPages: "Halaman Ganjil",
     evenPages: "Halaman Genap",
     first5Pages: "5 Pertama",
@@ -62,7 +60,26 @@ const TRANSLATIONS = {
     savePdf: "Simpan PDF Baru",
     delete: "Hapus",
     rotate: "Putar",
+    addFiles: "Tambah File",
+    arrangeOrder: "Atur Urutan Dokumen",
+    noFilesSelected: "Belum ada file yang dipilih",
+    dragDropInstruction: "Tarik dan lepas file di sini, atau klik tombol di atas.",
+    successTitle: "Berhasil Dikonversi!",
+    successApplied: "Berhasil Diterapkan!",
+    successMerged: "Berhasil Digabungkan!",
+    successSplit: "Berhasil Dipisahkan!",
+    successCompressed: "Berhasil Dikompres!",
+    successRotated: "Berhasil Diputar!",
+    convertAnother: "Konversi file lainnya",
+    processNow: "Memproses Sekarang",
     
+    // Page Conversion Options
+    modeText: "Mode Teks",
+    modeImage: "Mode Gambar",
+    modeTextDesc: "Ekstrak teks — cocok untuk dokumen, laporan, & artikel",
+    modeImageDesc: "Render halaman — cocok untuk presentasi & brosur",
+    conversionMode: "Mode Konversi",
+
     // Watermark Tool Specifics
     tabNumbering: "Nomor Halaman",
     tabWatermark: "Tanda Air (Watermark)",
@@ -77,7 +94,7 @@ const TRANSLATIONS = {
     angle: "Sudut Rotasi",
     opacity: "Transparansi (Opacity)",
     applyChanges: "Terapkan & Buat PDF",
-    
+
     // Compression
     estimatedSize: "Estimasi Hasil",
     compressionLevel: "Tingkat Kompresi",
@@ -85,7 +102,7 @@ const TRANSLATIONS = {
     recommended: "Rekomendasi",
     low: "Rendah",
     custom: "Kustom Target (MB)",
-    
+
     // Camera Scan
     takePhoto: "Ambil Foto",
     switchCamera: "Ganti Kamera",
@@ -95,7 +112,7 @@ const TRANSLATIONS = {
     filterBW: "Dokumen Hitam Putih",
     capturedPhotos: "Foto Terambil",
     generatePdfFromScan: "Gabungkan Foto ke PDF",
-    
+
     // Password Modal
     passwordProtectedTitle: "Dokumen Dilindungi Kata Sandi",
     passwordPromptMsg: "Dokumen ini dilindungi kata sandi. Masukkan kata sandi untuk membuka.",
@@ -119,33 +136,31 @@ const TRANSLATIONS = {
 
     // Tools Titles & Descriptions
     mergeTitle: "Merge PDF",
-    mergeDesc: "Combine PDFs into the order you want with the easiest PDF merger.",
+    mergeDesc: "Combine multiple PDF documents into a single file in your desired order.",
     splitTitle: "Split PDF",
-    splitDesc: "Separate one page or all for easy conversion to separate PDF files.",
+    splitDesc: "Separate single pages or extract specific page ranges into separate PDFs.",
     compressTitle: "Compress PDF",
-    compressDesc: "Reduce file size while optimizing maximum PDF quality.",
+    compressDesc: "Significantly reduce PDF file size with visual quality optimization directly in your browser.",
     pdfToWordTitle: "PDF to Word",
-    pdfToWordDesc: "Easily convert PDF files into editable DOC and DOCX documents.",
+    pdfToWordDesc: "Convert PDF files into directly editable Word (DOCX) documents.",
     wordToPdfTitle: "Word to PDF",
-    wordToPdfDesc: "Make DOC and DOCX files easy to read by converting to PDF.",
+    wordToPdfDesc: "Convert Word (DOCX) documents into neatly formatted PDF files.",
     rotateTitle: "Rotate PDF",
-    rotateDesc: "Rotate your PDFs as you need. You can rotate multiple PDFs at once!",
+    rotateDesc: "Rotate PDF page orientation 90° or 180° in batch quickly.",
     pdfToJpgTitle: "PDF to JPG",
-    pdfToJpgDesc: "Convert each PDF page to JPG or extract all images in PDF.",
+    pdfToJpgDesc: "Extract every page of a PDF document into high quality JPG images.",
     jpgToPdfTitle: "JPG to PDF",
-    jpgToPdfDesc: "Convert JPG images to PDF in seconds with custom margins.",
+    jpgToPdfDesc: "Convert a collection of JPG/PNG images into a single PDF document.",
     pdfToMdTitle: "PDF to Markdown",
-    pdfToMdDesc: "Extract text, headings, and tables from PDF to structured Markdown.",
-
-    // New Tools
+    pdfToMdDesc: "Extract PDF text, headings, and table structures into Markdown (.md) format.",
     watermarkTitle: "Page Numbering & Watermark",
-    watermarkDesc: "Add automatic page numbers and custom text or transparent image watermarks.",
+    watermarkDesc: "Add automatic page numbers or custom diagonal text/logo watermarks.",
     organizeTitle: "Organize PDF Pages",
     organizeDesc: "Interactive page-by-page grid to reorder, delete, rotate, insert blank page, & extract.",
     cameraScanTitle: "Scan to PDF (Camera)",
-    cameraScanDesc: "Scan physical documents using your device camera and convert instantly to PDF.",
+    cameraScanDesc: "Scan physical documents using your device camera and convert directly to PDF.",
 
-    // General UI
+    // General UI & Controls
     selectFiles: "Select PDF Files",
     dropFiles: "or drop files here",
     pasteTip: "Tip: Press Ctrl+V (or Cmd+V) to paste files directly from clipboard",
@@ -157,7 +172,7 @@ const TRANSLATIONS = {
     reverseOrder: "Reverse Order",
     selectedItems: "selected",
     download: "Download Result",
-    processing: "Processing...",
+    processing: "Processing on device...",
     oddPages: "Odd Pages",
     evenPages: "Even Pages",
     first5Pages: "First 5",
@@ -166,6 +181,25 @@ const TRANSLATIONS = {
     savePdf: "Save New PDF",
     delete: "Delete",
     rotate: "Rotate",
+    addFiles: "Add Files",
+    arrangeOrder: "Arrange Document Order",
+    noFilesSelected: "No files selected yet",
+    dragDropInstruction: "Drag & drop files here, or click the button above.",
+    successTitle: "Converted Successfully!",
+    successApplied: "Applied Successfully!",
+    successMerged: "Merged Successfully!",
+    successSplit: "Split Successfully!",
+    successCompressed: "Compressed Successfully!",
+    successRotated: "Rotated Successfully!",
+    convertAnother: "Process another file",
+    processNow: "Process Now",
+
+    // Page Conversion Options
+    modeText: "Text Mode",
+    modeImage: "Image Mode",
+    modeTextDesc: "Extract text — ideal for reports, articles, & text documents",
+    modeImageDesc: "Render pages — ideal for presentations, designs, & brochures",
+    conversionMode: "Conversion Mode",
 
     // Watermark Tool Specifics
     tabNumbering: "Page Numbering",
