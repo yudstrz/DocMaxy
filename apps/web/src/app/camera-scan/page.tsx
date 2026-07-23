@@ -328,17 +328,17 @@ export default function CameraScanPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between font-sans select-none overflow-x-hidden">
-      {/* -------------------- PHASE 1: CAMERA VIEWFINDER -------------------- */}
+    <div className="font-sans select-none overflow-hidden">
+      {/* -------------------- PHASE 1: CAMERA VIEWFINDER (FULLSCREEN 100DVH) -------------------- */}
       {isCameraActive && (
-        <div className="relative flex-1 flex flex-col justify-between bg-black min-h-[85vh]">
-          {/* Top Bar (Cleaned up: Removed HD & 3-dots as requested) */}
-          <div className="absolute top-0 inset-x-0 z-30 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
+        <div className="fixed inset-0 z-50 flex flex-col justify-between bg-black h-[100dvh] w-screen overflow-hidden">
+          {/* Top Bar (Cleaned up: Removed HD & 3-dots) */}
+          <div className="h-14 shrink-0 flex items-center justify-between px-4 bg-gradient-to-b from-black/90 to-black/30 z-30">
             <button onClick={stopCamera} className="p-2 text-white hover:opacity-80">
               <X className="w-6 h-6" />
             </button>
 
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
               <button onClick={toggleFlash} className="p-2 text-white">
                 {flashOn ? <Zap className="w-5 h-5 text-amber-400 fill-amber-400" /> : <ZapOff className="w-5 h-5 text-slate-400" />}
               </button>
@@ -350,7 +350,7 @@ export default function CameraScanPage() {
           </div>
 
           {/* Camera Stream & Overlays */}
-          <div className="relative flex-1 flex items-center justify-center bg-black overflow-hidden">
+          <div className="relative flex-1 min-h-0 bg-black overflow-hidden flex items-center justify-center">
             <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
 
             {/* Grid */}
@@ -363,16 +363,16 @@ export default function CameraScanPage() {
             )}
 
             {/* Frame Overlay */}
-            <div className="absolute inset-8 sm:inset-16 border-2 border-[#00B69A] rounded-2xl pointer-events-none shadow-[0_0_20px_rgba(0,182,154,0.3)] flex items-center justify-center">
+            <div className="absolute inset-6 sm:inset-12 border-2 border-[#00B69A] rounded-2xl pointer-events-none shadow-[0_0_20px_rgba(0,182,154,0.3)] flex items-center justify-center">
               <div className="w-full h-0.5 bg-[#00B69A]/30 animate-pulse" />
             </div>
 
             {/* Single vs Batch */}
             {scanMode === 'scan' && (
-              <div className="absolute bottom-6 z-20 flex bg-slate-900/80 backdrop-blur-md rounded-full p-1 border border-slate-800">
+              <div className="absolute bottom-4 z-20 flex bg-slate-900/80 backdrop-blur-md rounded-full p-1 border border-slate-800">
                 <button
                   onClick={() => setCaptureBatchMode('single')}
-                  className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  className={`px-4 py-1 rounded-full text-xs font-bold transition-all ${
                     captureBatchMode === 'single' ? 'bg-slate-700 text-white' : 'text-slate-400'
                   }`}
                 >
@@ -380,7 +380,7 @@ export default function CameraScanPage() {
                 </button>
                 <button
                   onClick={() => setCaptureBatchMode('batch')}
-                  className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  className={`px-4 py-1 rounded-full text-xs font-bold transition-all ${
                     captureBatchMode === 'batch' ? 'bg-slate-700 text-white' : 'text-slate-400'
                   }`}
                 >
@@ -401,7 +401,7 @@ export default function CameraScanPage() {
                   <button
                     key={card.id}
                     onClick={() => setIdCardType(card.id as IDCardType)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap backdrop-blur-md transition-all ${
+                    className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap backdrop-blur-md transition-all ${
                       idCardType === card.id ? 'bg-[#00B69A] text-white shadow-md' : 'bg-slate-900/80 text-slate-300'
                     }`}
                   >
@@ -413,28 +413,28 @@ export default function CameraScanPage() {
           </div>
 
           {/* Shutter Bar */}
-          <div className="bg-black pb-8 pt-4 px-6 flex flex-col items-center gap-4">
+          <div className="h-32 shrink-0 bg-black flex flex-col items-center justify-between pb-3 pt-2 px-6">
             <div className="flex items-center gap-6 text-xs font-bold tracking-wider text-slate-400 uppercase">
-              <button onClick={() => setScanMode('scan')} className={scanMode === 'scan' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-1' : ''}>
+              <button onClick={() => setScanMode('scan')} className={scanMode === 'scan' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-0.5' : ''}>
                 Scan
               </button>
-              <button onClick={() => setScanMode('id_card')} className={scanMode === 'id_card' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-1' : ''}>
+              <button onClick={() => setScanMode('id_card')} className={scanMode === 'id_card' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-0.5' : ''}>
                 ID Cards
               </button>
             </div>
 
             <div className="w-full flex items-center justify-between">
               <label className="cursor-pointer flex flex-col items-center text-slate-400 hover:text-white">
-                <div className="p-2.5 bg-slate-900 rounded-2xl mb-1 border border-slate-800">
-                  <FileText className="w-6 h-6 text-slate-300" />
+                <div className="p-2 bg-slate-900 rounded-xl mb-0.5 border border-slate-800">
+                  <FileText className="w-5 h-5 text-slate-300" />
                 </div>
-                <span className="text-[10px]">Import Files</span>
+                <span className="text-[9px]">Import</span>
                 <input type="file" accept="image/*,application/pdf" multiple onChange={handleImportFiles} className="hidden" />
               </label>
 
               <button
                 onClick={handleCapture}
-                className="w-20 h-20 rounded-full border-4 border-[#00B69A] p-1 flex items-center justify-center transition-transform active:scale-95 shadow-[0_0_25px_rgba(0,182,154,0.4)]"
+                className="w-16 h-16 rounded-full border-4 border-[#00B69A] p-1 flex items-center justify-center transition-transform active:scale-95 shadow-[0_0_20px_rgba(0,182,154,0.4)]"
               >
                 <div className="w-full h-full bg-white rounded-full" />
               </button>
@@ -442,19 +442,19 @@ export default function CameraScanPage() {
               {photos.length > 0 ? (
                 <button
                   onClick={() => setIsCameraActive(false)}
-                  className="relative p-1 bg-slate-900 border border-[#00B69A] rounded-2xl overflow-hidden w-12 h-14"
+                  className="relative p-0.5 bg-slate-900 border border-[#00B69A] rounded-xl overflow-hidden w-11 h-13"
                 >
                   <img src={photos[photos.length - 1].filteredSrc} alt="Thumb" className="w-full h-full object-cover" />
-                  <span className="absolute bottom-0 right-0 bg-[#00B69A] text-white text-[10px] font-bold px-1 rounded-tl">
+                  <span className="absolute bottom-0 right-0 bg-[#00B69A] text-white text-[9px] font-bold px-1 rounded-tl">
                     {photos.length}
                   </span>
                 </button>
               ) : (
                 <button onClick={() => setFacingMode(facingMode === 'user' ? 'environment' : 'user')} className="flex flex-col items-center text-slate-400">
-                  <div className="p-2.5 bg-slate-900 rounded-2xl mb-1 border border-slate-800">
-                    <RefreshCw className="w-6 h-6 text-slate-300" />
+                  <div className="p-2 bg-slate-900 rounded-xl mb-0.5 border border-slate-800">
+                    <RefreshCw className="w-5 h-5 text-slate-300" />
                   </div>
-                  <span className="text-[10px]">Switch</span>
+                  <span className="text-[9px]">Switch</span>
                 </button>
               )}
             </div>
@@ -462,10 +462,10 @@ export default function CameraScanPage() {
         </div>
       )}
 
-      {/* Manual Start Camera Fallback if Inactive & No Photos */}
+      {/* Manual Start Camera Fallback */}
       {!isCameraActive && photos.length === 0 && (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-950 text-center min-h-[70vh]">
-          <div className="p-6 bg-slate-900 rounded-3xl border border-slate-800 mb-6 shadow-xl">
+        <div className="min-h-[75vh] flex flex-col items-center justify-center p-6 bg-slate-950 text-center text-white">
+          <div className="p-6 bg-slate-900 rounded-3xl border border-slate-800 mb-6 shadow-xl max-w-sm w-full">
             <Camera className="w-16 h-16 text-[#00B69A] mx-auto mb-3 animate-bounce" />
             <h2 className="text-2xl font-bold text-white mb-2">CamScanner Studio</h2>
             <p className="text-sm text-slate-400 max-w-sm mx-auto mb-6">
@@ -487,17 +487,17 @@ export default function CameraScanPage() {
         </div>
       )}
 
-      {/* -------------------- PHASE 2: POST-PROCESSING & FILTER EDITOR -------------------- */}
+      {/* -------------------- PHASE 2: POST-PROCESSING (FULLSCREEN 100DVH) -------------------- */}
       {!isCameraActive && photos.length > 0 && (
-        <div className="flex-1 flex flex-col justify-between bg-slate-950">
+        <div className="fixed inset-0 z-50 flex flex-col justify-between bg-slate-950 text-white h-[100dvh] w-screen overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-slate-900">
+          <div className="h-14 shrink-0 flex items-center justify-between px-4 border-b border-slate-900">
             <button onClick={() => setIsCameraActive(true)} className="p-2 text-slate-400 hover:text-white">
-              <ArrowLeft className="w-6 h-6" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
 
-            <span className="font-bold text-sm tracking-wide text-slate-200">
-              CamScanner Document ({activePhotoIdx + 1}/{photos.length})
+            <span className="font-bold text-xs tracking-wide text-slate-200">
+              CamScanner ({activePhotoIdx + 1}/{photos.length})
             </span>
 
             <button onClick={() => setPhotos([])} className="text-xs font-semibold text-rose-400 hover:underline">
@@ -505,14 +505,14 @@ export default function CameraScanPage() {
             </button>
           </div>
 
-          {/* Page Preview Box with Compare Option */}
-          <div className="relative flex-1 flex items-center justify-center p-4 min-h-[50vh]">
+          {/* Page Preview Box */}
+          <div className="relative flex-1 min-h-0 flex items-center justify-center p-3 overflow-hidden bg-slate-950">
             {currentPhoto && (
-              <div className="relative max-w-full max-h-[60vh] rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex items-center justify-center">
+              <div className="relative max-w-full max-h-full rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex items-center justify-center">
                 <img
                   src={isComparingOriginal ? currentPhoto.originalSrc : currentPhoto.filteredSrc}
                   alt={`Page ${activePhotoIdx + 1}`}
-                  className="max-h-[55vh] object-contain transition-transform duration-200"
+                  className="max-h-[55vh] sm:max-h-[60vh] object-contain transition-transform duration-200"
                   style={{ transform: `rotate(${currentPhoto.rotation}deg)` }}
                 />
 
@@ -521,7 +521,7 @@ export default function CameraScanPage() {
                   onMouseUp={() => setIsComparingOriginal(false)}
                   onTouchStart={() => setIsComparingOriginal(true)}
                   onTouchEnd={() => setIsComparingOriginal(false)}
-                  className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md text-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-700 active:bg-[#00B69A] active:text-white"
+                  className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md text-slate-200 px-3 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 border border-slate-700 active:bg-[#00B69A] active:text-white"
                 >
                   <Eye className="w-3.5 h-3.5" />
                   <span>Compare</span>
@@ -531,8 +531,8 @@ export default function CameraScanPage() {
           </div>
 
           {/* Filter Thumbnails Carousel */}
-          <div className="bg-slate-900/60 border-t border-slate-900 p-4">
-            <div className="flex justify-center gap-3 overflow-x-auto pb-2">
+          <div className="h-14 shrink-0 bg-slate-900/60 border-t border-slate-900 px-3 flex items-center">
+            <div className="flex gap-2 overflow-x-auto w-full py-1">
               {[
                 { id: 'original', label: 'Original' },
                 { id: 'lighten', label: 'Lighten' },
@@ -544,7 +544,7 @@ export default function CameraScanPage() {
                 <button
                   key={f.id}
                   onClick={() => handleSelectFilter(f.id as CameraFilterMode)}
-                  className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all border shrink-0 ${
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border shrink-0 ${
                     activeFilter === f.id
                       ? 'border-[#00B69A] bg-[#00B69A]/20 text-[#00B69A]'
                       : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200'
@@ -557,33 +557,32 @@ export default function CameraScanPage() {
           </div>
 
           {/* Action Bar */}
-          <div className="p-4 bg-black border-t border-slate-900 flex items-center justify-between px-6">
+          <div className="h-16 shrink-0 bg-black border-t border-slate-900 flex items-center justify-between px-6">
             <button onClick={() => setIsCameraActive(true)} className="flex flex-col items-center text-slate-400 hover:text-white">
-              <Camera className="w-5 h-5 mb-1" />
-              <span className="text-[10px]">Retake</span>
+              <Camera className="w-5 h-5 mb-0.5" />
+              <span className="text-[9px]">Retake</span>
             </button>
 
             <button onClick={handleRotateCurrent} className="flex flex-col items-center text-slate-400 hover:text-white">
-              <RotateCcw className="w-5 h-5 mb-1" />
-              <span className="text-[10px]">Left</span>
+              <RotateCcw className="w-5 h-5 mb-0.5" />
+              <span className="text-[9px]">Left</span>
             </button>
 
             <button onClick={() => setIsCropModalOpen(true)} className="flex flex-col items-center text-slate-400 hover:text-white">
-              <Crop className="w-5 h-5 mb-1 text-[#00B69A]" />
-              <span className="text-[10px]">Crop</span>
+              <Crop className="w-5 h-5 mb-0.5 text-[#00B69A]" />
+              <span className="text-[9px]">Crop</span>
             </button>
 
             <button onClick={() => setIsOcrModalOpen(true)} className="flex flex-col items-center text-slate-400 hover:text-white">
-              <FileText className="w-5 h-5 mb-1" />
-              <span className="text-[10px]">Extract Text</span>
+              <FileText className="w-5 h-5 mb-0.5" />
+              <span className="text-[9px]">OCR Text</span>
             </button>
 
-            {/* Checkmark triggers Advanced PDF Settings */}
             <button
               onClick={() => setIsPdfSettingsOpen(true)}
-              className="w-12 h-12 bg-[#00B69A] hover:bg-[#00a38a] text-white rounded-2xl flex items-center justify-center shadow-lg transition-transform active:scale-95"
+              className="w-11 h-11 bg-[#00B69A] hover:bg-[#00a38a] text-white rounded-xl flex items-center justify-center shadow-lg transition-transform active:scale-95"
             >
-              <Check className="w-6 h-6" />
+              <Check className="w-5 h-5" />
             </button>
           </div>
         </div>
