@@ -27,6 +27,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setThemeState('dark');
       document.documentElement.classList.add('dark');
+    } else {
+      setThemeState('light');
+      document.documentElement.classList.remove('dark');
     }
   }, []);
 
@@ -41,7 +44,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
   };
 
   return (
