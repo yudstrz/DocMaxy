@@ -486,43 +486,47 @@ export default function CameraScanPage() {
             </div>
 
             <div className="w-full flex items-center justify-between">
-              <label className="cursor-pointer flex flex-col items-center text-slate-400 hover:text-white">
-                <div className="p-2 bg-slate-900 rounded-xl mb-0.5 border border-slate-800">
+              <label className="cursor-pointer flex flex-col items-center text-slate-400 hover:text-white w-24 items-start">
+                <div className="p-2 bg-slate-900 rounded-xl mb-0.5 border border-slate-800 ml-2">
                   <FileText className="w-5 h-5 text-slate-300" />
                 </div>
-                <span className="text-[9px]">Import</span>
+                <span className="text-[9px] ml-4">Import</span>
                 <input type="file" accept="image/*,application/pdf" multiple onChange={handleImportFiles} className="hidden" />
               </label>
 
               <button
                 onClick={handleCapture}
-                className="w-16 h-16 rounded-full border-4 border-[#00B69A] p-1 flex items-center justify-center transition-transform active:scale-95 shadow-[0_0_20px_rgba(0,182,154,0.4)]"
+                className="w-16 h-16 shrink-0 rounded-full border-4 border-[#00B69A] p-1 flex items-center justify-center transition-transform active:scale-95 shadow-[0_0_20px_rgba(0,182,154,0.4)]"
               >
                 <div className="w-full h-full bg-white rounded-full" />
               </button>
 
-              {photos.length > 0 ? (
-                <button
-                  onClick={() => setIsCameraActive(false)}
-                  className="relative p-0.5 bg-slate-900 border border-[#00B69A] rounded-xl overflow-hidden w-11 h-13"
-                >
-                  <img src={photos[photos.length - 1].filteredSrc} alt="Thumb" className="w-full h-full object-cover" />
-                  <span className="absolute bottom-0 right-0 bg-[#00B69A] text-white text-[9px] font-bold px-1 rounded-tl">
-                    {photos.length}
-                  </span>
-                </button>
-              ) : (
+              <div className="flex items-center gap-3 w-24 justify-end">
+                {/* Switch Camera Button (Always visible so users can switch cameras anytime) */}
                 <button
                   onClick={switchCamera}
                   disabled={isSwitchingCamera}
                   className="flex flex-col items-center text-slate-400 disabled:opacity-50"
                 >
                   <div className="p-2 bg-slate-900 rounded-xl mb-0.5 border border-slate-800">
-                    <RefreshCw className={`w-5 h-5 text-slate-300 ${isSwitchingCamera ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-4 h-4 text-slate-300 ${isSwitchingCamera ? 'animate-spin' : ''}`} />
                   </div>
                   <span className="text-[9px]">Switch</span>
                 </button>
-              )}
+
+                {/* Photo Gallery Thumbnail (Only visible when at least 1 photo has been taken) */}
+                {photos.length > 0 && (
+                  <button
+                    onClick={() => setIsCameraActive(false)}
+                    className="relative p-0.5 bg-slate-900 border border-[#00B69A] rounded-xl overflow-hidden w-10 h-10 shrink-0"
+                  >
+                    <img src={photos[photos.length - 1].filteredSrc} alt="Thumb" className="w-full h-full object-cover" />
+                    <span className="absolute bottom-0 right-0 bg-[#00B69A] text-white text-[8px] font-bold px-1 rounded-tl">
+                      {photos.length}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
