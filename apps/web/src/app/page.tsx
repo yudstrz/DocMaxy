@@ -126,11 +126,10 @@ export default function Home() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4">
-            DocMaxy PDF Toolkit
+            {t('heroTitle')}
           </h1>
           <p className="text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-            Setiap alat yang Anda perlukan untuk bekerja dengan PDF di satu tempat.
-            Semuanya 100% GRATIS, aman, dan tanpa perlu upload ke server!
+            {t('heroSubtitle')}
           </p>
         </div>
 
@@ -153,7 +152,7 @@ export default function Home() {
               >
                 {!isReady && (
                   <span className="absolute top-4 right-4 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                    Segera Hadir
+                    {t('comingSoon')}
                   </span>
                 )}
 

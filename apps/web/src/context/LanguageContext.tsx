@@ -13,6 +13,11 @@ const TRANSLATIONS = {
     themeToggle: "Ganti Tema",
     langToggle: "Bahasa",
 
+    // Hero Home
+    heroTitle: "DocMaxy PDF Toolkit",
+    heroSubtitle: "Setiap alat yang Anda perlukan untuk bekerja dengan PDF di satu tempat. Semuanya 100% GRATIS, aman, dan tanpa perlu upload ke server!",
+    comingSoon: "Segera Hadir",
+
     // Tools Titles & Descriptions
     mergeTitle: "Gabungkan PDF",
     mergeDesc: "Gabungkan beberapa dokumen PDF menjadi satu file sesuai urutan pilihan Anda.",
@@ -133,6 +138,11 @@ const TRANSLATIONS = {
     sessionHistory: "Session History",
     themeToggle: "Toggle Theme",
     langToggle: "Language",
+
+    // Hero Home
+    heroTitle: "DocMaxy PDF Toolkit",
+    heroSubtitle: "Every tool you need to work with PDFs in one place. 100% FREE, secure, and no server uploads required!",
+    comingSoon: "Coming Soon",
 
     // Tools Titles & Descriptions
     mergeTitle: "Merge PDF",
