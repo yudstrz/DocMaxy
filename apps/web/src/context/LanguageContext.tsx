@@ -12,6 +12,8 @@ const TRANSLATIONS = {
     sessionHistory: "Riwayat Sesi",
     themeToggle: "Ganti Tema",
     langToggle: "Bahasa",
+    privacyLink: "Kebijakan Privasi",
+    termsLink: "Syarat & Ketentuan",
 
     // Hero Home
     heroTitle: "DocMaxy PDF Toolkit",
@@ -138,6 +140,8 @@ const TRANSLATIONS = {
     sessionHistory: "Session History",
     themeToggle: "Toggle Theme",
     langToggle: "Language",
+    privacyLink: "Privacy Policy",
+    termsLink: "Terms of Service",
 
     // Hero Home
     heroTitle: "DocMaxy PDF Toolkit",
