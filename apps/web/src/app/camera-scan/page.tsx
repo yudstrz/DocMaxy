@@ -1,9 +1,15 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Camera, RefreshCw, Trash2, CheckCircle2, Download, Sliders, Image as ImageIcon, Sparkles } from 'lucide-react';
+import {
+  X, Zap, ZapOff, Grid, MoreVertical, Camera, RefreshCw, RotateCcw,
+  Crop, FileText, CheckCircle2, Download, Layers, ShieldCheck, Sparkles,
+  ArrowLeft, Check, Copy, Eye, CreditCard
+} from 'lucide-react';
 import { applyCameraFilter, CameraFilterMode } from '@/utils/cameraFilter';
-import { PDFDocument } from 'pdf-lib';
+import { ScannerCropModal } from '@/components/ScannerCropModal';
+import { OcrResultModal } from '@/components/OcrResultModal';
+import { PDFDocument, degrees } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import { saveHistoryItem } from '@/utils/historyDB';
 import { GranularProgressModal } from '@/components/GranularProgressModal';
@@ -14,14 +20,33 @@ interface ScannedPhoto {
   originalSrc: string;
   filteredSrc: string;
   filterMode: CameraFilterMode;
+  rotation: number;
 }
 
+type ScanMode = 'scan' | 'id_card';
+type IDCardType = 'general' | 'driver_license' | 'id_card' | 'passport' | 'bank_card';
+
 export default function CameraScanPage() {
+  // Mode States
+  const [scanMode, setScanMode] = useState<ScanMode>('scan');
+  const [captureBatchMode, setCaptureBatchMode] = useState<'single' | 'batch'>('single');
+  const [idCardType, setIdCardType] = useState<IDCardType>('id_card');
+
+  // Camera & Stream States
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [photos, setPhotos] = useState<ScannedPhoto[]>([]);
-  const [globalFilter, setGlobalFilter] = useState<CameraFilterMode>('contrast');
+  const [flashOn, setFlashOn] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
 
+  // Gallery & Filter States
+  const [photos, setPhotos] = useState<ScannedPhoto[]>([]);
+  const [activePhotoIdx, setActivePhotoIdx] = useState<number>(0);
+  const [activeFilter, setActiveFilter] = useState<CameraFilterMode>('enhance'); // CamScanner Magic Color
+  const [isComparingOriginal, setIsComparingOriginal] = useState(false);
+
+  // Modals & Progress
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -29,11 +54,11 @@ export default function CameraScanPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Start Camera Stream
+  // 1. Start Camera Stream
   const startCamera = async () => {
     try {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current.getTracks().forEach((t) => t.stop());
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -46,28 +71,42 @@ export default function CameraScanPage() {
       }
       setIsCameraActive(true);
     } catch (err: any) {
-      toast.error('Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan.');
+      toast.error('Gagal membuka kamera. Pastikan izin kamera telah diberikan.');
       setIsCameraActive(false);
     }
   };
 
-  // Stop Camera Stream
   const stopCamera = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
     setIsCameraActive(false);
   };
 
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, []);
+  const toggleFlash = async () => {
+    if (!streamRef.current) return;
+    const track = streamRef.current.getVideoTracks()[0];
+    if (track && 'applyConstraints' in track) {
+      try {
+        const nextState = !flashOn;
+        await (track as any).applyConstraints({
+          advanced: [{ torch: nextState }],
+        });
+        setFlashOn(nextState);
+      } catch {
+        toast.error('Lampu kilat tidak didukung pada perangkat ini.');
+      }
+    }
+  };
 
-  // Capture Shutter Photo
-  const capturePhoto = async () => {
+  useEffect(() => {
+    startCamera();
+    return () => stopCamera();
+  }, [facingMode]);
+
+  // 2. Capture Shutter Action
+  const handleCapture = async () => {
     if (!videoRef.current) return;
 
     const video = videoRef.current;
@@ -78,43 +117,82 @@ export default function CameraScanPage() {
     if (!ctx) return;
 
     ctx.drawImage(video, 0, 0);
-    const originalSrc = canvas.toDataURL('image/jpeg', 0.9);
-    const filteredSrc = await applyCameraFilter(originalSrc, globalFilter);
+    const originalSrc = canvas.toDataURL('image/jpeg', 0.92);
+
+    // Apply CamScanner Magic Color Enhance filter by default
+    const filteredSrc = await applyCameraFilter(originalSrc, activeFilter);
 
     const newPhoto: ScannedPhoto = {
       id: crypto.randomUUID(),
       originalSrc,
       filteredSrc,
-      filterMode: globalFilter,
+      filterMode: activeFilter,
+      rotation: 0,
     };
 
     setPhotos((prev) => [...prev, newPhoto]);
-    toast.success('Foto halaman berhasil diambil! 📸');
-  };
+    toast.success('Halaman terfoto! 📸');
 
-  // Change filter for a photo or globally
-  const handleApplyFilterToAll = async (filter: CameraFilterMode) => {
-    setGlobalFilter(filter);
-    const updated = await Promise.all(
-      photos.map(async (p) => ({
-        ...p,
-        filterMode: filter,
-        filteredSrc: await applyCameraFilter(p.originalSrc, filter),
-      }))
-    );
-    setPhotos(updated);
-  };
-
-  const deletePhoto = (id: string) => {
-    setPhotos((prev) => prev.filter((p) => p.id !== id));
-  };
-
-  // Convert all scanned photos into 1 multi-page PDF
-  const handleGeneratePDF = async () => {
-    if (photos.length === 0) {
-      toast.error('Ambil minimal 1 foto dokumen.');
-      return;
+    if (captureBatchMode === 'single') {
+      setActivePhotoIdx(photos.length);
+      stopCamera();
     }
+  };
+
+  // Import from local files / gallery
+  const handleImportFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const newPhotos: ScannedPhoto[] = [];
+    for (const file of files) {
+      const reader = new FileReader();
+      const originalSrc = await new Promise<string>((res) => {
+        reader.onload = () => res(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      const filteredSrc = await applyCameraFilter(originalSrc, activeFilter);
+      newPhotos.push({
+        id: crypto.randomUUID(),
+        originalSrc,
+        filteredSrc,
+        filterMode: activeFilter,
+        rotation: 0,
+      });
+    }
+
+    setPhotos((prev) => [...prev, ...newPhotos]);
+    stopCamera();
+  };
+
+  // Change filter for current photo
+  const handleSelectFilter = async (mode: CameraFilterMode) => {
+    setActiveFilter(mode);
+    if (photos.length === 0) return;
+
+    const current = photos[activePhotoIdx];
+    if (!current) return;
+
+    const newFilteredSrc = await applyCameraFilter(current.originalSrc, mode);
+    setPhotos((prev) =>
+      prev.map((p, idx) => (idx === activePhotoIdx ? { ...p, filterMode: mode, filteredSrc: newFilteredSrc } : p))
+    );
+  };
+
+  // Rotate current photo 90 deg
+  const handleRotateCurrent = () => {
+    if (photos.length === 0) return;
+    setPhotos((prev) =>
+      prev.map((p, idx) => (idx === activePhotoIdx ? { ...p, rotation: (p.rotation - 90) % 360 } : p))
+    );
+  };
+
+  const currentPhoto = photos[activePhotoIdx];
+
+  // Export to PDF
+  const handleGeneratePDF = async () => {
+    if (photos.length === 0) return;
 
     setIsProcessing(true);
     setDownloadUrl(null);
@@ -128,12 +206,17 @@ export default function CameraScanPage() {
         const imgBuffer = await res.arrayBuffer();
 
         const embeddedJpg = await pdfDoc.embedJpg(imgBuffer);
-        const page = pdfDoc.addPage([embeddedJpg.width, embeddedJpg.height]);
+
+        let width = embeddedJpg.width;
+        let height = embeddedJpg.height;
+
+        const page = pdfDoc.addPage([width, height]);
         page.drawImage(embeddedJpg, {
           x: 0,
           y: 0,
-          width: embeddedJpg.width,
-          height: embeddedJpg.height,
+          width,
+          height,
+          rotate: photo.rotation !== 0 ? degrees(photo.rotation) : undefined,
         });
 
         setProgress({ current: i + 1, total: photos.length });
@@ -144,11 +227,11 @@ export default function CameraScanPage() {
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
 
-      const filename = `DocMaxy_Scan_${Date.now()}.pdf`;
+      const filename = `CamScanner_${Date.now()}.pdf`;
       await saveHistoryItem(filename, 'Camera Scan to PDF', blob);
-      toast.success('Foto berhasil dikonversi ke PDF! 📄');
+      toast.success('PDF Scanner berhasil dibuat! 📄');
     } catch (err: any) {
-      toast.error(err.message || 'Gagal membuat dokumen PDF.');
+      toast.error(err.message || 'Gagal menyusun PDF.');
     } finally {
       setIsProcessing(false);
       setProgress(null);
@@ -156,175 +239,305 @@ export default function CameraScanPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-10 px-4 sm:px-6 lg:px-8 transition-colors">
-      <main className="max-w-5xl mx-auto">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center p-3 bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 rounded-2xl mb-4 shadow-sm">
-            <Camera className="w-8 h-8" />
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Pindai ke PDF via Kamera
-          </h1>
-          <p className="mt-3 max-w-2xl text-base sm:text-lg text-slate-600 dark:text-slate-400 mx-auto">
-            Memfoto dokumen fisik menggunakan kamera HP / Webcam. Filter otomatis agar bersih seperti hasil mesin scanner!
-          </p>
-        </div>
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between font-sans select-none overflow-x-hidden">
+      {/* -------------------- PHASE 1: CAMERA VIEWFINDER -------------------- */}
+      {isCameraActive && (
+        <div className="relative flex-1 flex flex-col justify-between bg-black">
+          {/* Top Bar */}
+          <div className="absolute top-0 inset-x-0 z-30 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
+            <button onClick={stopCamera} className="p-2 text-white hover:opacity-80">
+              <X className="w-6 h-6" />
+            </button>
 
-        {/* Camera Control / Viewfinder */}
-        <div className="max-w-2xl mx-auto bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 mb-10">
-          {!isCameraActive ? (
-            <div className="text-center py-10">
-              <Camera className="w-16 h-16 text-rose-500 mx-auto mb-4 animate-bounce" />
-              <button
-                onClick={startCamera}
-                className="px-8 py-4 bg-rose-600 hover:bg-rose-700 text-white font-bold text-base rounded-2xl shadow-lg transition-all flex items-center gap-2 mx-auto"
-              >
-                <Camera className="w-5 h-5" />
-                <span>Buka Kamera Scanner</span>
+            <div className="flex items-center gap-6">
+              <button onClick={toggleFlash} className="p-1 text-white">
+                {flashOn ? <Zap className="w-5 h-5 text-amber-400 fill-amber-400" /> : <ZapOff className="w-5 h-5 text-slate-400" />}
+              </button>
+
+              <button onClick={() => setShowGrid(!showGrid)} className="p-1">
+                <Grid className={`w-5 h-5 ${showGrid ? 'text-[#00B69A]' : 'text-slate-400'}`} />
+              </button>
+
+              <span className="px-2 py-0.5 border border-[#00B69A] text-[#00B69A] text-[10px] font-extrabold rounded">
+                HD
+              </span>
+
+              <button className="p-1 text-slate-400">
+                <MoreVertical className="w-5 h-5" />
               </button>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="relative rounded-2xl overflow-hidden bg-black aspect-[4/3] flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
+          </div>
 
-                {/* Switch Camera */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'));
-                    startCamera();
-                  }}
-                  className="absolute top-4 right-4 bg-slate-900/60 hover:bg-slate-900 text-white p-3 rounded-full backdrop-blur-sm transition-colors"
-                >
-                  <RefreshCw className="w-5 h-5" />
-                </button>
+          {/* Camera Video Stream & Alignment Overlays */}
+          <div className="relative flex-1 flex items-center justify-center bg-black overflow-hidden">
+            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+
+            {/* Rule-of-thirds Alignment Grid */}
+            {showGrid && (
+              <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-25 border border-white/40">
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <div key={i} className="border border-white/30" />
+                ))}
               </div>
+            )}
 
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  onClick={stopCamera}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-semibold"
-                >
-                  Tutup Kamera
-                </button>
-
-                <button
-                  onClick={capturePhoto}
-                  className="px-8 py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm rounded-2xl shadow-lg transition-all flex items-center gap-2"
-                >
-                  <Camera className="w-5 h-5" />
-                  <span>Ambil Foto ({photos.length})</span>
-                </button>
-              </div>
+            {/* Live Document Detection Frame Overlay */}
+            <div className="absolute inset-8 sm:inset-16 border-2 border-[#00B69A] rounded-2xl pointer-events-none shadow-[0_0_20px_rgba(0,182,154,0.3)] flex items-center justify-center">
+              <div className="w-full h-0.5 bg-[#00B69A]/30 animate-pulse" />
             </div>
-          )}
-        </div>
 
-        {/* Captured Photos Gallery */}
-        {photos.length > 0 && (
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-500" />
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">
-                  Filter Document Mode:
-                </span>
+            {/* Single vs Batch Floating Pill */}
+            {scanMode === 'scan' && (
+              <div className="absolute bottom-6 z-20 flex bg-slate-900/80 backdrop-blur-md rounded-full p-1 border border-slate-800">
+                <button
+                  onClick={() => setCaptureBatchMode('single')}
+                  className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    captureBatchMode === 'single' ? 'bg-slate-700 text-white' : 'text-slate-400'
+                  }`}
+                >
+                  Single
+                </button>
+                <button
+                  onClick={() => setCaptureBatchMode('batch')}
+                  className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    captureBatchMode === 'batch' ? 'bg-slate-700 text-white' : 'text-slate-400'
+                  }`}
+                >
+                  Batch
+                </button>
               </div>
+            )}
 
-              <div className="flex items-center gap-2 flex-wrap">
+            {/* ID Cards Mode Options */}
+            {scanMode === 'id_card' && (
+              <div className="absolute bottom-4 z-20 flex gap-2 overflow-x-auto px-4 max-w-full">
                 {[
-                  { id: 'contrast', label: 'Kontras Tinggi' },
-                  { id: 'bw', label: 'Dokumen B&W' },
-                  { id: 'grayscale', label: 'Grayscale' },
-                  { id: 'original', label: 'Asli' },
-                ].map((f) => (
+                  { id: 'general', label: 'General' },
+                  { id: 'driver_license', label: 'Driver License' },
+                  { id: 'id_card', label: 'ID Card (KTP)' },
+                  { id: 'passport', label: 'Passport' },
+                ].map((card) => (
                   <button
-                    key={f.id}
-                    onClick={() => handleApplyFilterToAll(f.id as CameraFilterMode)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      globalFilter === f.id
-                        ? 'bg-rose-600 text-white shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-rose-50'
+                    key={card.id}
+                    onClick={() => setIdCardType(card.id as IDCardType)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap backdrop-blur-md transition-all ${
+                      idCardType === card.id ? 'bg-[#00B69A] text-white shadow-md' : 'bg-slate-900/80 text-slate-300'
                     }`}
                   >
-                    {f.label}
+                    {card.label}
                   </button>
                 ))}
               </div>
+            )}
+          </div>
+
+          {/* Bottom Mode Carousel & Shutter Area */}
+          <div className="bg-black pb-8 pt-4 px-6 flex flex-col items-center gap-4">
+            {/* Mode Carousel */}
+            <div className="flex items-center gap-6 text-xs font-bold tracking-wider text-slate-400 uppercase">
+              <button onClick={() => setScanMode('scan')} className={scanMode === 'scan' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-1' : ''}>
+                Scan
+              </button>
+              <button onClick={() => setScanMode('id_card')} className={scanMode === 'id_card' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-1' : ''}>
+                ID Cards
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {photos.map((photo, index) => (
-                <div
-                  key={photo.id}
-                  className="relative group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 shadow-sm"
-                >
-                  <div className="w-full aspect-[3/4] bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden mb-2">
-                    <img
-                      src={photo.filteredSrc}
-                      alt={`Scan ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between px-1 text-xs font-bold text-slate-700 dark:text-slate-300">
-                    <span>Halaman {index + 1}</span>
-                    <button
-                      onClick={() => deletePhoto(photo.id)}
-                      className="text-rose-500 hover:text-rose-700 p-1"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+            {/* Shutter Bar */}
+            <div className="w-full flex items-center justify-between">
+              <label className="cursor-pointer flex flex-col items-center text-slate-400 hover:text-white">
+                <div className="p-2.5 bg-slate-900 rounded-2xl mb-1">
+                  <Layers className="w-6 h-6 text-slate-300" />
                 </div>
+                <span className="text-[10px]">Import Files</span>
+                <input type="file" accept="image/*,application/pdf" multiple onChange={handleImportFiles} className="hidden" />
+              </label>
+
+              {/* Shutter Button */}
+              <button
+                onClick={handleCapture}
+                className="w-20 h-20 rounded-full border-4 border-[#00B69A] p-1 flex items-center justify-center transition-transform active:scale-95 shadow-[0_0_25px_rgba(0,182,154,0.4)]"
+              >
+                <div className="w-full h-full bg-white rounded-full" />
+              </button>
+
+              {photos.length > 0 ? (
+                <button
+                  onClick={() => setIsCameraActive(false)}
+                  className="relative p-1 bg-slate-900 border border-[#00B69A] rounded-2xl overflow-hidden w-12 h-14"
+                >
+                  <img src={photos[photos.length - 1].filteredSrc} alt="Thumb" className="w-full h-full object-cover" />
+                  <span className="absolute bottom-0 right-0 bg-[#00B69A] text-white text-[10px] font-bold px-1 rounded-tl">
+                    {photos.length}
+                  </span>
+                </button>
+              ) : (
+                <button onClick={() => setFacingMode(facingMode === 'user' ? 'environment' : 'user')} className="flex flex-col items-center text-slate-400">
+                  <div className="p-2.5 bg-slate-900 rounded-2xl mb-1">
+                    <RefreshCw className="w-6 h-6 text-slate-300" />
+                  </div>
+                  <span className="text-[10px]">Switch</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------- PHASE 2: POST-PROCESSING & FILTER EDITOR -------------------- */}
+      {!isCameraActive && photos.length > 0 && (
+        <div className="flex-1 flex flex-col justify-between bg-slate-950">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-slate-900">
+            <button onClick={() => setIsCameraActive(true)} className="p-2 text-slate-400 hover:text-white">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+
+            <span className="font-bold text-sm tracking-wide text-slate-200">
+              CamScanner Document ({activePhotoIdx + 1}/{photos.length})
+            </span>
+
+            <button onClick={() => setPhotos([])} className="text-xs font-semibold text-rose-400 hover:underline">
+              Reset
+            </button>
+          </div>
+
+          {/* Page Preview Box with Compare Option */}
+          <div className="relative flex-1 flex items-center justify-center p-4 min-h-[50vh]">
+            {currentPhoto && (
+              <div className="relative max-w-full max-h-[60vh] rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex items-center justify-center">
+                <img
+                  src={isComparingOriginal ? currentPhoto.originalSrc : currentPhoto.filteredSrc}
+                  alt={`Page ${activePhotoIdx + 1}`}
+                  className="max-h-[55vh] object-contain transition-transform duration-200"
+                  style={{ transform: `rotate(${currentPhoto.rotation}deg)` }}
+                />
+
+                {/* Compare Hold Button */}
+                <button
+                  onMouseDown={() => setIsComparingOriginal(true)}
+                  onMouseUp={() => setIsComparingOriginal(false)}
+                  onTouchStart={() => setIsComparingOriginal(true)}
+                  onTouchEnd={() => setIsComparingOriginal(false)}
+                  className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md text-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-700 active:bg-[#00B69A] active:text-white"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Compare</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Filter Thumbnails Carousel */}
+          <div className="bg-slate-900/60 border-t border-slate-900 p-4">
+            <div className="flex justify-center gap-3 overflow-x-auto pb-2">
+              {[
+                { id: 'original', label: 'Original' },
+                { id: 'lighten', label: 'Lighten' },
+                { id: 'enhance', label: 'Enhance (Magic)' },
+                { id: 'magic_pro', label: 'Magic Pro' },
+                { id: 'bw', label: 'B&W' },
+                { id: 'grayscale', label: 'Grayscale' },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => handleSelectFilter(f.id as CameraFilterMode)}
+                  className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all border shrink-0 ${
+                    activeFilter === f.id
+                      ? 'border-[#00B69A] bg-[#00B69A]/20 text-[#00B69A]'
+                      : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
               ))}
             </div>
+          </div>
 
-            <div className="flex justify-center pt-6">
+          {/* Action Bar */}
+          <div className="p-4 bg-black border-t border-slate-900 flex items-center justify-between px-6">
+            <button onClick={() => setIsCameraActive(true)} className="flex flex-col items-center text-slate-400 hover:text-white">
+              <Camera className="w-5 h-5 mb-1" />
+              <span className="text-[10px]">Retake</span>
+            </button>
+
+            <button onClick={handleRotateCurrent} className="flex flex-col items-center text-slate-400 hover:text-white">
+              <RotateCcw className="w-5 h-5 mb-1" />
+              <span className="text-[10px]">Left</span>
+            </button>
+
+            <button onClick={() => setIsCropModalOpen(true)} className="flex flex-col items-center text-slate-400 hover:text-white">
+              <Crop className="w-5 h-5 mb-1 text-[#00B69A]" />
+              <span className="text-[10px]">Crop</span>
+            </button>
+
+            <button onClick={() => setIsOcrModalOpen(true)} className="flex flex-col items-center text-slate-400 hover:text-white">
+              <FileText className="w-5 h-5 mb-1" />
+              <span className="text-[10px]">Extract Text</span>
+            </button>
+
+            {/* Save Checkmark */}
+            <button
+              onClick={handleGeneratePDF}
+              className="w-12 h-12 bg-[#00B69A] hover:bg-[#00a38a] text-white rounded-2xl flex items-center justify-center shadow-lg transition-transform active:scale-95"
+            >
+              <Check className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Download Box */}
+      {downloadUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 text-center max-w-md">
+            <CheckCircle2 className="w-14 h-14 text-[#00B69A] mx-auto mb-3" />
+            <h3 className="text-2xl font-bold text-white mb-2">🎉 PDF Scan Ready!</h3>
+            <p className="text-xs text-slate-400 mb-6">Dokumen hasil scanner CamScanner siap diunduh.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDownloadUrl(null)} className="flex-1 py-3 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl">
+                Tutup
+              </button>
               <button
-                onClick={handleGeneratePDF}
-                disabled={isProcessing}
-                className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base rounded-2xl shadow-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                onClick={() => saveAs(downloadUrl, `CamScanner_Doc_${Date.now()}.pdf`)}
+                className="flex-1 py-3 bg-[#00B69A] text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center gap-1.5"
               >
-                <Download className="w-5 h-5" />
-                <span>Gabungkan {photos.length} Foto ke 1 PDF</span>
+                <Download className="w-4 h-4" />
+                <span>Unduh PDF</span>
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Download Box */}
-        {downloadUrl && (
-          <div className="mt-8 max-w-xl mx-auto p-8 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-3xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
-            <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400 mb-3" />
-            <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-200 mb-1">
-              🎉 PDF Hasil Scan Siap!
-            </h3>
-            <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-6">
-              Foto scanner dokumen telah digabungkan menjadi 1 file PDF.
-            </p>
-            <button
-              onClick={() => saveAs(downloadUrl, `Scanned_Document_${Date.now()}.pdf`)}
-              className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base rounded-2xl shadow-md transition-all flex items-center gap-2"
-            >
-              <Download className="w-5 h-5" />
-              <span>Unduh File PDF</span>
-            </button>
-          </div>
-        )}
-      </main>
+      {/* Interactive Crop Modal */}
+      {currentPhoto && (
+        <ScannerCropModal
+          isOpen={isCropModalOpen}
+          imageSrc={currentPhoto.originalSrc}
+          onConfirmCrop={(croppedSrc) => {
+            setPhotos((prev) =>
+              prev.map((p, idx) => (idx === activePhotoIdx ? { ...p, filteredSrc: croppedSrc } : p))
+            );
+          }}
+          onClose={() => setIsCropModalOpen(false)}
+        />
+      )}
+
+      {/* OCR Result Modal */}
+      {currentPhoto && (
+        <OcrResultModal
+          isOpen={isOcrModalOpen}
+          imageSrc={currentPhoto.filteredSrc}
+          onClose={() => setIsOcrModalOpen(false)}
+        />
+      )}
 
       <GranularProgressModal
         isOpen={isProcessing && progress !== null}
         current={progress?.current || 0}
         total={progress?.total || 0}
-        stepDescription="Mengonversi Foto Scan ke PDF..."
+        stepDescription="Menyusun Dokumen CamScanner PDF..."
       />
     </div>
   );
