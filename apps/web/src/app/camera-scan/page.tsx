@@ -57,7 +57,7 @@ export default function CameraScanPage() {
   // Gallery & Filter States
   const [photos, setPhotos] = useState<ScannedPhoto[]>([]);
   const [activePhotoIdx, setActivePhotoIdx] = useState<number>(0);
-  const [activeFilter, setActiveFilter] = useState<CameraFilterMode>('enhance'); // CamScanner Magic Color
+  const [activeFilter, setActiveFilter] = useState<CameraFilterMode>('sharp_text'); // Document Sharp Text default
   const [filterScope, setFilterScope] = useState<'current' | 'all'>('current'); // Apply to current vs all
   const [isComparingOriginal, setIsComparingOriginal] = useState(false);
 
@@ -98,14 +98,21 @@ export default function CameraScanPage() {
 
       let stream: MediaStream | null = null;
       try {
+        // Request highest resolution stream available (up to 4K / 1080p Full HD)
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: resolvedMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          video: { facingMode: resolvedMode, width: { ideal: 3840, min: 1920 }, height: { ideal: 2160, min: 1080 } },
         });
       } catch {
-        // Fallback for mobile compatibility
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: resolvedMode },
-        });
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: resolvedMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          });
+        } catch {
+          // Fallback for basic mobile compatibility
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: resolvedMode },
+          });
+        }
       }
 
       streamRef.current = stream;
@@ -273,7 +280,7 @@ export default function CameraScanPage() {
     if (!ctx) return;
 
     ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
-    const originalSrc = canvas.toDataURL('image/jpeg', 0.92);
+    const originalSrc = canvas.toDataURL('image/jpeg', 0.98);
 
     const filteredSrc = await applyCameraFilter(originalSrc, activeFilter);
 
@@ -931,12 +938,13 @@ export default function CameraScanPage() {
             {/* Filter Carousel */}
             <div className="flex gap-1.5 overflow-x-auto w-full py-1">
               {[
-                { id: 'original', label: 'Original' },
-                { id: 'lighten', label: 'Lighten' },
-                { id: 'enhance', label: 'Enhance (Magic)' },
-                { id: 'magic_pro', label: 'Magic Pro' },
-                { id: 'bw', label: 'B&W' },
+                { id: 'sharp_text', label: 'Teks Tajam (Fokus)' },
+                { id: 'enhance', label: 'Magic Color' },
+                { id: 'magic_color', label: 'Warna Berwarna' },
+                { id: 'bw', label: 'Hitam Putih (B&W)' },
                 { id: 'grayscale', label: 'Grayscale' },
+                { id: 'lighten', label: 'Terangkan' },
+                { id: 'original', label: 'Asli (Original)' },
               ].map((f) => (
                 <button
                   key={f.id}

@@ -1,4 +1,11 @@
-export type CameraFilterMode = 'original' | 'lighten' | 'enhance' | 'magic_pro' | 'bw' | 'grayscale';
+export type CameraFilterMode =
+  | 'original'
+  | 'sharp_text'   // Teks Tajam & Latar Putih (High-contrast Document Focus)
+  | 'enhance'      // Magic Color (CamScanner Signature)
+  | 'magic_color'  // Color Document (White background + Preserve color stamps/ink)
+  | 'lighten'      // Lighten Document
+  | 'bw'           // High-contrast Black & White
+  | 'grayscale';   // Clean Grayscale
 
 export interface Point {
   x: number;
@@ -6,9 +13,10 @@ export interface Point {
 }
 
 /**
- * Advanced CamScanner Magic Color (Enhance) filter:
- * Removes background shadows, brightens paper background to clean white,
- * and sharpens text/pencil/ink handwriting.
+ * Advanced Document Scanner Filter Engine:
+ * - High-pass unsharp mask convolution to remove camera lens blur.
+ * - Adaptive background whitening to erase paper shadows & yellowing.
+ * - Contrast amplification for handwriting, pencil, pen, and printed text.
  */
 export async function applyCameraFilter(
   imageSrc: string,
@@ -20,9 +28,12 @@ export async function applyCameraFilter(
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+      const W = img.width;
+      const H = img.height;
+
       const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = W;
+      canvas.height = H;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Canvas context not available'));
@@ -30,65 +41,136 @@ export async function applyCameraFilter(
       }
 
       ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
+      const imageData = ctx.getImageData(0, 0, W, H);
+      const srcData = imageData.data;
 
-      // 1. Calculate average luminance for background estimation
-      let totalLum = 0;
-      const pixelCount = data.length / 4;
-      for (let i = 0; i < data.length; i += 4) {
-        totalLum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      // 1. Sharpness & High-Pass Edge Filter (Removes camera lens blur)
+      let processedData = srcData;
+      if (mode === 'sharp_text' || mode === 'enhance' || mode === 'magic_color' || mode === 'bw') {
+        const outData = new Uint8ClampedArray(srcData.length);
+        outData.set(srcData);
+
+        // 3x3 Sharpen Convolution Kernel Matrix: [0, -0.4, 0], [-0.4, 2.6, -0.4], [0, -0.4, 0]
+        const kCenter = 2.6;
+        const kEdge = -0.4;
+
+        for (let y = 1; y < H - 1; y += 2) {
+          for (let x = 1; x < W - 1; x += 2) {
+            const idx = (y * W + x) * 4;
+
+            for (let c = 0; c < 3; c++) {
+              const centerVal = srcData[idx + c];
+              const topVal = srcData[((y - 1) * W + x) * 4 + c];
+              const botVal = srcData[((y + 1) * W + x) * 4 + c];
+              const leftVal = srcData[(y * W + (x - 1)) * 4 + c];
+              const rightVal = srcData[(y * W + (x + 1)) * 4 + c];
+
+              const sharpened = centerVal * kCenter + (topVal + botVal + leftVal + rightVal) * kEdge;
+              outData[idx + c] = Math.min(255, Math.max(0, sharpened));
+            }
+          }
+        }
+        processedData = outData;
       }
-      const avgLum = totalLum / pixelCount;
 
-      for (let i = 0; i < data.length; i += 4) {
-        let r = data[i];
-        let g = data[i + 1];
-        let b = data[i + 2];
+      // 2. Calculate Luminance Statistics
+      let minLum = 255;
+      let maxLum = 0;
+      let sumLum = 0;
+      const step = 4;
+      let sampleCount = 0;
+      for (let i = 0; i < processedData.length; i += 4 * step) {
+        const r = processedData[i];
+        const g = processedData[i + 1];
+        const b = processedData[i + 2];
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        sumLum += lum;
+        if (lum < minLum) minLum = lum;
+        if (lum > maxLum) maxLum = lum;
+        sampleCount++;
+      }
 
-        // Gray formula
+      const avgLum = sumLum / (sampleCount || 1);
+      const shadowCutoff = Math.max(minLum + 15, avgLum * 0.78);
+      const highlightCutoff = Math.min(maxLum - 10, avgLum * 1.15);
+
+      const outImageData = ctx.createImageData(W, H);
+      const out = outImageData.data;
+
+      // 3. Pixel Transformation Pass
+      for (let i = 0; i < processedData.length; i += 4) {
+        const r = processedData[i];
+        const g = processedData[i + 1];
+        const b = processedData[i + 2];
+        const a = processedData[i + 3];
+
         const gray = 0.299 * r + 0.587 * g + 0.114 * b;
 
         if (mode === 'grayscale') {
-          data[i] = gray;
-          data[i + 1] = gray;
-          data[i + 2] = gray;
-        } else if (mode === 'lighten') {
-          // Soft brighten paper without extreme thresholding
-          const factor = 1.25;
-          data[i] = Math.min(255, r * factor);
-          data[i + 1] = Math.min(255, g * factor);
-          data[i + 2] = Math.min(255, b * factor);
-        } else if (mode === 'enhance' || mode === 'magic_pro') {
-          // CamScanner Magic Color:
-          // Paper background whitening + text ink sharpening
-          const shadowThreshold = avgLum * 0.85;
-
-          if (gray > shadowThreshold) {
-            // Whiten paper background
-            const boost = 1.35;
-            data[i] = Math.min(255, r * boost + 25);
-            data[i + 1] = Math.min(255, g * boost + 25);
-            data[i + 2] = Math.min(255, b * boost + 25);
+          const normGray = Math.min(255, Math.max(0, ((gray - shadowCutoff) / (highlightCutoff - shadowCutoff || 1)) * 255));
+          out[i] = normGray;
+          out[i + 1] = normGray;
+          out[i + 2] = normGray;
+          out[i + 3] = a;
+        } else if (mode === 'sharp_text') {
+          // Teks Tajam (Document Focus - Pure White Paper & Sharp Dark Text)
+          if (gray > shadowCutoff + (highlightCutoff - shadowCutoff) * 0.35) {
+            // Paper Background -> Force Pure White
+            out[i] = 255;
+            out[i + 1] = 255;
+            out[i + 2] = 255;
           } else {
-            // Darken and sharpen handwriting/ink text
-            const darkFactor = mode === 'magic_pro' ? 0.75 : 0.85;
-            data[i] = r * darkFactor;
-            data[i + 1] = g * darkFactor;
-            data[i + 2] = b * darkFactor;
+            // Handwriting / Text -> Deep Black Sharp Contrast
+            const factor = Math.pow(gray / 255, 1.7);
+            const textVal = Math.max(0, Math.min(255, factor * 200));
+            out[i] = textVal;
+            out[i + 1] = textVal;
+            out[i + 2] = textVal;
           }
+          out[i + 3] = a;
+        } else if (mode === 'enhance') {
+          // CamScanner Magic Color
+          if (gray > shadowCutoff) {
+            const boost = 1.35;
+            out[i] = Math.min(255, r * boost + 25);
+            out[i + 1] = Math.min(255, g * boost + 25);
+            out[i + 2] = Math.min(255, b * boost + 25);
+          } else {
+            out[i] = Math.max(0, r * 0.75);
+            out[i + 1] = Math.max(0, g * 0.75);
+            out[i + 2] = Math.max(0, b * 0.75);
+          }
+          out[i + 3] = a;
+        } else if (mode === 'magic_color') {
+          // Color Document (White background + preserve red stamps / blue ink)
+          if (gray > shadowCutoff) {
+            out[i] = 255;
+            out[i + 1] = 255;
+            out[i + 2] = 255;
+          } else {
+            out[i] = Math.min(255, Math.max(0, (r - 10) * 1.15));
+            out[i + 1] = Math.min(255, Math.max(0, (g - 10) * 1.15));
+            out[i + 2] = Math.min(255, Math.max(0, (b - 10) * 1.15));
+          }
+          out[i + 3] = a;
         } else if (mode === 'bw') {
-          // Scanner 1-bit high-contrast threshold
-          const threshold = avgLum * 0.9;
-          const val = gray > threshold ? 255 : 0;
-          data[i] = val;
-          data[i + 1] = val;
-          data[i + 2] = val;
+          // Crisp 1-bit Black & White Document
+          const val = gray > shadowCutoff + (highlightCutoff - shadowCutoff) * 0.35 ? 255 : 0;
+          out[i] = val;
+          out[i + 1] = val;
+          out[i + 2] = val;
+          out[i + 3] = a;
+        } else if (mode === 'lighten') {
+          const factor = 1.25;
+          out[i] = Math.min(255, r * factor);
+          out[i + 1] = Math.min(255, g * factor);
+          out[i + 2] = Math.min(255, b * factor);
+          out[i + 3] = a;
         }
       }
 
-      ctx.putImageData(imageData, 0, 0);
-      resolve(canvas.toDataURL('image/jpeg', 0.92));
+      ctx.putImageData(outImageData, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg', 0.98));
     };
 
     img.onerror = () => reject(new Error('Failed to load image for filtering'));
@@ -176,7 +258,7 @@ export async function cropPerspective(
       }
 
       ctx.putImageData(outImgData, 0, 0);
-      resolve(canvas.toDataURL('image/jpeg', 0.92));
+      resolve(canvas.toDataURL('image/jpeg', 0.98));
     };
 
     img.onerror = () => reject(new Error('Failed to load image for cropping'));
