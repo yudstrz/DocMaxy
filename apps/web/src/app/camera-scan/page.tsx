@@ -36,7 +36,7 @@ const PAGE_DIMS: Record<string, [number, number]> = {
 };
 
 export default function CameraScanPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   // Mode States
   const [scanMode, setScanMode] = useState<ScanMode>('scan');
@@ -46,6 +46,8 @@ export default function CameraScanPage() {
   // Camera & Stream States
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [cameraErrorMsg, setCameraErrorMsg] = useState<string | null>(null);
@@ -74,37 +76,50 @@ export default function CameraScanPage() {
   const streamRef = useRef<MediaStream | null>(null);
 
   // 1. Start Camera Stream with mobile fallback
-  const startCamera = async () => {
+  // Accepts optional facingMode param so switch can pass new value directly
+  // without relying on a useEffect that causes DOM flash.
+  const startCamera = async (mode?: 'user' | 'environment') => {
+    const resolvedMode = mode ?? facingMode;
     setCameraErrorMsg(null);
+    setIsRequestingPermission(true);
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Browser Anda tidak mendukung API Kamera.');
       }
 
+      // Stop any existing stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
       }
 
       let stream: MediaStream | null = null;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          video: { facingMode: resolvedMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
         });
       } catch {
         // Fallback for mobile compatibility
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode },
+          video: { facingMode: resolvedMode },
         });
       }
 
       streamRef.current = stream;
+
+      // Ensure camera is "visible" before attaching stream
+      setIsCameraActive(true);
+
+      // Use rAF to ensure video element is in DOM before assigning srcObject
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute('playsinline', 'true');
         videoRef.current.muted = true;
         await videoRef.current.play().catch(() => {});
       }
-      setIsCameraActive(true);
+
       setCameraErrorMsg(null);
     } catch (err: any) {
       console.error('Camera Start Error:', err);
@@ -116,6 +131,9 @@ export default function CameraScanPage() {
       } else {
         setCameraErrorMsg('Gagal membuka kamera. Silakan klik tombol aktifkan di bawah untuk mencoba lagi.');
       }
+    } finally {
+      setIsRequestingPermission(false);
+      setIsSwitchingCamera(false);
     }
   };
 
@@ -125,6 +143,15 @@ export default function CameraScanPage() {
       streamRef.current = null;
     }
     setIsCameraActive(false);
+  };
+
+  // Switch camera without stopping the stream first (avoids DOM flash)
+  const switchCamera = async () => {
+    if (isSwitchingCamera) return;
+    const newMode: 'user' | 'environment' = facingMode === 'user' ? 'environment' : 'user';
+    setIsSwitchingCamera(true);
+    setFacingMode(newMode);
+    await startCamera(newMode);
   };
 
   const toggleFlash = async () => {
@@ -143,10 +170,11 @@ export default function CameraScanPage() {
     }
   };
 
+  // No facingMode dependency — switching is handled by switchCamera() directly
   useEffect(() => {
-    startCamera();
     return () => stopCamera();
-  }, [facingMode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 2. Capture Shutter Action
   const handleCapture = async () => {
@@ -172,13 +200,26 @@ export default function CameraScanPage() {
       rotation: 0,
     };
 
-    setPhotos((prev) => [...prev, newPhoto]);
-    toast.success('Halaman terfoto!');
+    setPhotos((prev) => {
+      const updated = [...prev, newPhoto];
 
-    if (captureBatchMode === 'single') {
-      setActivePhotoIdx(photos.length);
-      stopCamera();
-    }
+      // In Single mode: close camera immediately after capture
+      if (captureBatchMode === 'single') {
+        // Use setTimeout so state flush happens before we close camera
+        setTimeout(() => {
+          setActivePhotoIdx(updated.length - 1);
+          setIsCameraActive(false);
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((t) => t.stop());
+            streamRef.current = null;
+          }
+        }, 50);
+      }
+      // In Batch mode: stay in camera, keep shooting
+      return updated;
+    });
+
+    toast.success(captureBatchMode === 'single' ? t('successTitle') : 'Foto ditambahkan! Lanjutkan mengambil foto.');
   };
 
   // Import from local files / gallery
@@ -381,27 +422,6 @@ export default function CameraScanPage() {
               <div className="w-full h-0.5 bg-[#00B69A]/30 animate-pulse" />
             </div>
 
-            {/* Single vs Batch */}
-            {scanMode === 'scan' && (
-              <div className="absolute bottom-4 z-20 flex bg-slate-900/80 backdrop-blur-md rounded-full p-1 border border-slate-800">
-                <button
-                  onClick={() => setCaptureBatchMode('single')}
-                  className={`px-4 py-1 rounded-full text-xs font-bold transition-all ${
-                    captureBatchMode === 'single' ? 'bg-slate-700 text-white' : 'text-slate-400'
-                  }`}
-                >
-                  Single
-                </button>
-                <button
-                  onClick={() => setCaptureBatchMode('batch')}
-                  className={`px-4 py-1 rounded-full text-xs font-bold transition-all ${
-                    captureBatchMode === 'batch' ? 'bg-slate-700 text-white' : 'text-slate-400'
-                  }`}
-                >
-                  Batch
-                </button>
-              </div>
-            )}
 
             {/* ID Cards Mode */}
             {scanMode === 'id_card' && (
@@ -428,13 +448,41 @@ export default function CameraScanPage() {
 
           {/* Shutter Bar */}
           <div className="h-32 shrink-0 bg-black flex flex-col items-center justify-between pb-3 pt-2 px-6">
-            <div className="flex items-center gap-6 text-xs font-bold tracking-wider text-slate-400 uppercase">
-              <button onClick={() => setScanMode('scan')} className={scanMode === 'scan' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-0.5' : ''}>
-                Scan
-              </button>
-              <button onClick={() => setScanMode('id_card')} className={scanMode === 'id_card' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-0.5' : ''}>
-                ID Cards
-              </button>
+            {/* Top row: Scan/ID Cards mode tabs + Single/Batch pill (when in Scan mode) */}
+            <div className="flex items-center gap-4 text-xs font-bold tracking-wider">
+              <div className="flex items-center gap-4 text-slate-400 uppercase">
+                <button onClick={() => setScanMode('scan')} className={scanMode === 'scan' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-0.5' : ''}>
+                  Scan
+                </button>
+                <button onClick={() => setScanMode('id_card')} className={scanMode === 'id_card' ? 'text-[#00B69A] border-b-2 border-[#00B69A] pb-0.5' : ''}>
+                  ID Cards
+                </button>
+              </div>
+
+              {/* Single / Batch pill — only shown in Scan mode, lives here so it never overlaps the frame */}
+              {scanMode === 'scan' && (
+                <>
+                  <div className="w-px h-4 bg-slate-700" />
+                  <div className="flex bg-slate-900 rounded-full p-0.5 border border-slate-800">
+                    <button
+                      onClick={() => setCaptureBatchMode('single')}
+                      className={`px-3 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                        captureBatchMode === 'single' ? 'bg-slate-700 text-white' : 'text-slate-500'
+                      }`}
+                    >
+                      Single
+                    </button>
+                    <button
+                      onClick={() => setCaptureBatchMode('batch')}
+                      className={`px-3 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                        captureBatchMode === 'batch' ? 'bg-slate-700 text-white' : 'text-slate-500'
+                      }`}
+                    >
+                      Batch
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="w-full flex items-center justify-between">
@@ -464,9 +512,13 @@ export default function CameraScanPage() {
                   </span>
                 </button>
               ) : (
-                <button onClick={() => setFacingMode(facingMode === 'user' ? 'environment' : 'user')} className="flex flex-col items-center text-slate-400">
+                <button
+                  onClick={switchCamera}
+                  disabled={isSwitchingCamera}
+                  className="flex flex-col items-center text-slate-400 disabled:opacity-50"
+                >
                   <div className="p-2 bg-slate-900 rounded-xl mb-0.5 border border-slate-800">
-                    <RefreshCw className="w-5 h-5 text-slate-300" />
+                    <RefreshCw className={`w-5 h-5 text-slate-300 ${isSwitchingCamera ? 'animate-spin' : ''}`} />
                   </div>
                   <span className="text-[9px]">Switch</span>
                 </button>
@@ -506,11 +558,24 @@ export default function CameraScanPage() {
 
             {/* Main Action Button */}
             <button
-              onClick={startCamera}
-              className="w-full py-4 bg-[#00B69A] hover:bg-[#00a38a] text-white font-extrabold text-sm rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2.5 active:scale-95 mb-6"
+              onClick={() => startCamera()}
+              disabled={isRequestingPermission}
+              className="w-full py-4 bg-[#00B69A] hover:bg-[#00a38a] disabled:bg-[#00B69A]/70 text-white font-extrabold text-sm rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2.5 active:scale-95 mb-6"
             >
-              <Camera className="w-5 h-5" />
-              <span>{t('allowCameraButton')}</span>
+              {isRequestingPermission ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  </svg>
+                  <span>{lang === 'id' ? 'Menunggu izin browser...' : 'Waiting for browser permission...'}</span>
+                </>
+              ) : (
+                <>
+                  <Camera className="w-5 h-5" />
+                  <span>{t('allowCameraButton')}</span>
+                </>
+              )}
             </button>
 
             {/* Browser Permission Guide Box */}
