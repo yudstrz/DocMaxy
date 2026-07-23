@@ -38,7 +38,7 @@ export function OcrResultModal({
       await worker.terminate();
 
       setExtractedText(ret.data.text || 'Tidak ada teks yang dapat dideteksi dari gambar ini.');
-      toast.success('Teks dokumen berhasil diekstraksi! 📝');
+      toast.success('Teks dokumen berhasil diekstraksi!');
     } catch (err: any) {
       console.error('OCR Error:', err);
       setExtractedText('Gagal mengekstraksi teks. Coba gunakan filter B&W / Enhance.');

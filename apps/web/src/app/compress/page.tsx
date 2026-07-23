@@ -6,7 +6,7 @@ import { generatePDFThumbnail } from '@/utils/pdf';
 import { PDFDocument } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
-import { Settings2, ArrowDownToLine, Zap, SlidersHorizontal, CheckCircle2, Download, Sparkles } from 'lucide-react';
+import { Settings2, ArrowDownToLine, Zap, SlidersHorizontal, CheckCircle2, Download, Sparkles, ArrowRight } from 'lucide-react';
 import { saveHistoryItem } from '@/utils/historyDB';
 import { useClipboardPaste } from '@/hooks/useClipboardPaste';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -246,7 +246,7 @@ export default function CompressPage() {
               <div className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200">
                 <span>Ukuran Awal: </span>
                 <span className="font-bold text-slate-900 dark:text-white">{totalOriginalMB.toFixed(2)} MB</span>
-                <span className="mx-2">➔</span>
+                <ArrowRight className="w-3.5 h-3.5 inline mx-1.5 text-slate-400" />
                 <span>Estimasi Hasil: </span>
                 <span className="font-bold text-indigo-600 dark:text-indigo-400">~{estimatedMB.toFixed(2)} MB</span>
                 <span className="ml-2 bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded-full text-xs">
@@ -296,7 +296,7 @@ export default function CompressPage() {
         {downloadUrl && (
           <div className="mt-8 max-w-3xl mx-auto p-8 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-3xl flex flex-col items-center">
             <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400 mb-3" />
-            <h3 className="text-2xl font-bold text-emerald-800 dark:text-emerald-200 mb-3">🎉 Berhasil Dikompres!</h3>
+            <h3 className="text-2xl font-bold text-emerald-800 dark:text-emerald-200 mb-3">Berhasil Dikompres!</h3>
             {originalSize > 0 && (
               <p className="text-emerald-700 dark:text-emerald-300 mb-4 text-center">
                 {formatSize(originalSize)} → {formatSize(compressedSize)}{' '}

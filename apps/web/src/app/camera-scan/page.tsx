@@ -131,7 +131,7 @@ export default function CameraScanPage() {
     };
 
     setPhotos((prev) => [...prev, newPhoto]);
-    toast.success('Halaman terfoto! 📸');
+    toast.success('Halaman terfoto!');
 
     if (captureBatchMode === 'single') {
       setActivePhotoIdx(photos.length);
@@ -229,7 +229,7 @@ export default function CameraScanPage() {
 
       const filename = `CamScanner_${Date.now()}.pdf`;
       await saveHistoryItem(filename, 'Camera Scan to PDF', blob);
-      toast.success('PDF Scanner berhasil dibuat! 📄');
+      toast.success('PDF Scanner berhasil dibuat!');
     } catch (err: any) {
       toast.error(err.message || 'Gagal menyusun PDF.');
     } finally {
@@ -492,7 +492,10 @@ export default function CameraScanPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 text-center max-w-md">
             <CheckCircle2 className="w-14 h-14 text-[#00B69A] mx-auto mb-3" />
-            <h3 className="text-2xl font-bold text-white mb-2">🎉 PDF Scan Ready!</h3>
+            <h3 className="text-xl font-bold text-white mb-2 flex items-center justify-center gap-2">
+              <CheckCircle2 className="w-6 h-6 text-[#00B69A]" />
+              <span>PDF Scan Ready</span>
+            </h3>
             <p className="text-xs text-slate-400 mb-6">Dokumen hasil scanner CamScanner siap diunduh.</p>
             <div className="flex gap-3">
               <button onClick={() => setDownloadUrl(null)} className="flex-1 py-3 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl">

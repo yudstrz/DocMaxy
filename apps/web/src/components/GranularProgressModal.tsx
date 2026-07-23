@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldCheck } from 'lucide-react';
 
 interface GranularProgressModalProps {
   isOpen: boolean;
@@ -55,8 +55,9 @@ export function GranularProgressModal({
           </div>
         </div>
 
-        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-3">
-          ⚡ Proses berjalan 100% di browser Anda (aman & privat).
+        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-3 flex items-center justify-center gap-1">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+          <span>Proses berjalan 100% di browser Anda (aman & privat).</span>
         </p>
       </div>
     </div>

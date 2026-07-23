@@ -10,6 +10,7 @@ import {
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import toast from 'react-hot-toast';
+import { Check, FileText, Image as ImageIcon, CheckCircle2, Download } from 'lucide-react';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const Y_TOL           = 3;     // pts — items within this Y = same line
@@ -350,7 +351,7 @@ export default function PdfToWordPage() {
     if (totalMB > 200)
       toast(`File besar (${totalMB.toFixed(0)} MB) — proses mungkin beberapa menit.`, { duration: 7000, icon: '⏳' });
     if (enableOCR)
-      toast('Mode OCR aktif — proses lebih lambat, mohon tunggu.', { duration: 5000, icon: '🔍' });
+      toast('Mode OCR aktif — proses lebih lambat, mohon tunggu.', { duration: 5000 });
 
     setIsProcessing(true);
     setDownloadUrl(null);
@@ -574,46 +575,53 @@ export default function PdfToWordPage() {
               <>
                 <div className="mb-6 grid grid-cols-2 gap-3 text-sm">
                   {[
-                    ['✅', 'Teks paragraf & heading'],
-                    ['✅', 'Bold / Italic dari font PDF'],
-                    ['✅', 'Deteksi tabel otomatis'],
-                    ['✅', 'Deteksi multi-kolom'],
-                    ['✅', 'Mendukung file 500MB+'],
-                    ['✅', 'Progress per halaman'],
-                    ['✅', 'Gambar di PDF diekstrak'],
-                    ['✅', 'Mode OCR untuk PDF scan'],
-                  ].map(([icon, label]) => (
-                    <div key={label} className="flex items-center gap-2 text-slate-600">
-                      <span>{icon}</span><span>{label}</span>
+                    'Teks paragraf & heading',
+                    'Bold / Italic dari font PDF',
+                    'Deteksi tabel otomatis',
+                    'Deteksi multi-kolom',
+                    'Mendukung file 500MB+',
+                    'Progress per halaman',
+                    'Gambar di PDF diekstrak',
+                    'Mode OCR untuk PDF scan',
+                  ].map((label) => (
+                    <div key={label} className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>{label}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Settings panel */}
-                <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
 
                   {/* Render Mode - most important toggle */}
                   <div>
-                    <p className="text-sm font-semibold text-slate-700 mb-2">Mode Konversi</p>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Mode Konversi</p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setPageRenderMode('text')}
-                        className={`p-3 rounded-xl border-2 text-left transition-all ${pageRenderMode === 'text' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'}`}
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${pageRenderMode === 'text' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}
                       >
-                        <p className={`text-sm font-semibold ${pageRenderMode === 'text' ? 'text-blue-700' : 'text-slate-600'}`}>📝 Mode Teks</p>
+                        <p className={`text-sm font-semibold flex items-center gap-1.5 ${pageRenderMode === 'text' ? 'text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                          <FileText className="w-4 h-4" />
+                          <span>Mode Teks</span>
+                        </p>
                         <p className="text-xs text-slate-400 mt-0.5 leading-snug">Ekstrak teks — cocok untuk dokumen, laporan, artikel</p>
                       </button>
                       <button
                         onClick={() => setPageRenderMode('image')}
-                        className={`p-3 rounded-xl border-2 text-left transition-all ${pageRenderMode === 'image' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-slate-300'}`}
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${pageRenderMode === 'image' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}
                       >
-                        <p className={`text-sm font-semibold ${pageRenderMode === 'image' ? 'text-emerald-700' : 'text-slate-600'}`}>🖼️ Mode Gambar</p>
+                        <p className={`text-sm font-semibold flex items-center gap-1.5 ${pageRenderMode === 'image' ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                          <ImageIcon className="w-4 h-4" />
+                          <span>Mode Gambar</span>
+                        </p>
                         <p className="text-xs text-slate-400 mt-0.5 leading-snug">Render halaman — cocok untuk <strong>presentasi, desain, brosur</strong></p>
                       </button>
                     </div>
                     {pageRenderMode === 'image' && (
-                      <p className="mt-2 text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
-                        🎯 Setiap halaman PDF akan dirender menjadi gambar — layout, gambar, dan warna terjaga 100%. Teks tidak bisa diedit, tapi tampilan persis sama seperti PDF asli.
+                      <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 rounded-lg px-3 py-2 border border-emerald-200 dark:border-emerald-900">
+                        Setiap halaman PDF akan dirender menjadi gambar — layout, gambar, dan warna terjaga 100%. Teks tidak bisa diedit, tapi tampilan persis sama seperti PDF asli.
                       </p>
                     )}
                   </div>
@@ -706,8 +714,9 @@ export default function PdfToWordPage() {
         )}
 
         {downloadUrl && (
-          <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center">
-            <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Dikonversi!</h3>
+          <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 dark:bg-emerald-950/40 border border-green-200 dark:border-emerald-900 rounded-3xl flex flex-col items-center">
+            <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400 mb-3" />
+            <h3 className="text-2xl font-bold text-green-800 dark:text-emerald-200 mb-3">Berhasil Dikonversi!</h3>
             <button onClick={() => saveAs(downloadUrl, downloadFilename)}
               className="w-full sm:w-auto px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
               Unduh Word

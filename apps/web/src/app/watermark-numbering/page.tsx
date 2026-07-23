@@ -435,7 +435,7 @@ export default function WatermarkNumberingPage() {
           <div className="mt-8 max-w-2xl mx-auto p-8 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-3xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
             <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400 mb-3" />
             <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-200 mb-1">
-              🎉 Berhasil Diterapkan!
+              Berhasil Diterapkan!
             </h3>
             <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-6">
               Dokumen PDF Anda telah selesai diberi nomor halaman / watermark.

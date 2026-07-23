@@ -5,6 +5,7 @@ import { SortableGrid, PDFDocument } from '@/components/SortableGrid';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import toast from 'react-hot-toast';
+import { Check, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 // ── Yield to browser event loop ───────────────────────────────────────────────
 const yieldToBrowser = () => new Promise<void>((r) => setTimeout(r, 0));
@@ -731,21 +732,26 @@ export default function WordToPdfPage() {
             {!isProcessing && (
               <div className="mb-6 grid grid-cols-2 gap-3 text-sm">
                 {[
-                  ['✅', 'Heading H1–H6'],
-                  ['✅', 'Bold / Italic / Underline'],
-                  ['✅', 'Strikethrough'],
-                  ['✅', 'Hyperlink (klik di PDF)'],
-                  ['✅', 'Bullet & Numbered List'],
-                  ['✅', 'Tabel dengan multiline cell'],
-                  ['✅', 'Gambar embedded'],
-                  ['✅', 'Code block (monospace)'],
-                  ['✅', 'Superscript / Subscript'],
-                  ['✅', 'Center & Right alignment'],
-                  ['✅', 'Blockquote'],
-                  ['⚠️', 'Header/footer halaman (tidak tersedia, keterbatasan browser)'],
-                ].map(([icon, label]) => (
-                  <div key={label} className="flex items-center gap-2 text-slate-600">
-                    <span>{icon}</span><span>{label}</span>
+                  { isWarning: false, label: 'Heading H1–H6' },
+                  { isWarning: false, label: 'Bold / Italic / Underline' },
+                  { isWarning: false, label: 'Strikethrough' },
+                  { isWarning: false, label: 'Hyperlink (klik di PDF)' },
+                  { isWarning: false, label: 'Bullet & Numbered List' },
+                  { isWarning: false, label: 'Tabel dengan multiline cell' },
+                  { isWarning: false, label: 'Gambar embedded' },
+                  { isWarning: false, label: 'Code block (monospace)' },
+                  { isWarning: false, label: 'Superscript / Subscript' },
+                  { isWarning: false, label: 'Center & Right alignment' },
+                  { isWarning: false, label: 'Blockquote' },
+                  { isWarning: true, label: 'Header/footer halaman (keterbatasan browser)' },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                    {item.isWarning ? (
+                      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                    ) : (
+                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    )}
+                    <span>{item.label}</span>
                   </div>
                 ))}
               </div>
@@ -778,9 +784,12 @@ export default function WordToPdfPage() {
         )}
 
         {downloadUrl && (
-          <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center">
-            <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Dikonversi!</h3>
-            <p className="text-sm text-green-600 mb-4">Teks dapat di-select, link dapat diklik ✅</p>
+          <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 dark:bg-emerald-950/40 border border-green-200 dark:border-emerald-900 rounded-3xl flex flex-col items-center">
+            <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400 mb-3" />
+            <h3 className="text-2xl font-bold text-green-800 dark:text-emerald-200 mb-1">Berhasil Dikonversi!</h3>
+            <p className="text-sm text-green-600 dark:text-emerald-400 mb-4 flex items-center gap-1">
+              <span>Teks dapat di-select, link dapat diklik</span>
+            </p>
             <button onClick={() => saveAs(downloadUrl, downloadFilename)}
               className="w-full sm:w-auto px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
               Unduh PDF

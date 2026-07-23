@@ -6,6 +6,7 @@ import { generatePDFThumbnail } from '@/utils/pdf';
 import { convertPdfToImages, bundleImagesToZip } from '@/utils/pdfToImages';
 import { saveAs } from 'file-saver';
 import toast from 'react-hot-toast';
+import { CheckCircle2 } from 'lucide-react';
 
 const DPI_OPTIONS = [
   { value: 72, label: '72 DPI (Cepat, kecil)' },
@@ -124,8 +125,9 @@ export default function PdfToJpgPage() {
         )}
 
         {downloadUrl && (
-          <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 border border-green-200 rounded-3xl flex flex-col items-center">
-            <h3 className="text-2xl font-bold text-green-800 mb-3">🎉 Berhasil Dikonversi!</h3>
+          <div className="mt-8 max-w-3xl mx-auto p-8 bg-green-50 dark:bg-emerald-950/40 border border-green-200 dark:border-emerald-900 rounded-3xl flex flex-col items-center">
+            <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400 mb-3" />
+            <h3 className="text-2xl font-bold text-green-800 dark:text-emerald-200 mb-3">Berhasil Dikonversi!</h3>
             <button onClick={() => saveAs(downloadUrl, downloadFilename)}
               className="w-full sm:w-auto px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-2xl shadow-md">
               Unduh Hasil JPG

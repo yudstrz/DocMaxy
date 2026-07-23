@@ -165,7 +165,7 @@ export default function OrganizePage() {
       copy.splice(afterIndex + 1, 0, blankItem);
       return copy;
     });
-    toast.success('Halaman kosong diselipkan 📄');
+    toast.success('Halaman kosong diselipkan');
   };
 
   const movePage = (fromIdx: number, toIdx: number) => {
@@ -254,7 +254,7 @@ export default function OrganizePage() {
                 atau tarik file ke sini (bisa lebih dari 1 file)
               </span>
               <span className="text-xs text-cyan-600 dark:text-cyan-400 font-semibold mt-4">
-                💡 Tip: Tekan Ctrl+V untuk menempel file dari clipboard
+                Tip: Tekan Ctrl+V untuk menempel file dari clipboard
               </span>
             </label>
           </div>
@@ -271,19 +271,19 @@ export default function OrganizePage() {
                 onClick={selectOddPages}
                 className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-cyan-50 dark:hover:bg-cyan-950 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors"
               >
-                🔘 Halaman Ganjil
+                Halaman Ganjil
               </button>
               <button
                 onClick={selectEvenPages}
                 className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-cyan-50 dark:hover:bg-cyan-950 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors"
               >
-                🔘 Halaman Genap
+                Halaman Genap
               </button>
               <button
                 onClick={selectFirst5Pages}
                 className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-cyan-50 dark:hover:bg-cyan-950 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors"
               >
-                🔘 5 Pertama
+                5 Halaman Pertama
               </button>
               <button
                 onClick={() => insertBlankPage(pages.length - 1)}
@@ -428,7 +428,7 @@ export default function OrganizePage() {
           <div className="mt-8 max-w-2xl mx-auto p-8 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-3xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
             <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400 mb-3" />
             <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-200 mb-1">
-              🎉 Berhasil Disusun!
+              Berhasil Disusun!
             </h3>
             <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-6">
               Dokumen PDF hasil susunan halaman baru telah siap diunduh.

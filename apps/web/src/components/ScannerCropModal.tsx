@@ -72,7 +72,7 @@ export function ScannerCropModal({
     try {
       const croppedSrc = await cropPerspective(imageSrc, corners);
       onConfirmCrop(croppedSrc);
-      toast.success('Potongan dokumen berhasil disesuaikan! ✂️');
+      toast.success('Potongan dokumen berhasil disesuaikan!');
       onClose();
     } catch (err: any) {
       toast.error('Gagal memotong gambar dokumen.');

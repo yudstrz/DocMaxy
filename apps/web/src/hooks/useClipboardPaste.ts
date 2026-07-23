@@ -31,9 +31,7 @@ export function useClipboardPaste(onFilesPasted: (files: File[]) => void) {
 
       if (files.length > 0) {
         e.preventDefault();
-        toast.success(`Ditempel ${files.length} file dari clipboard! 📋`, {
-          icon: '📋',
-        });
+        toast.success(`Ditempel ${files.length} file dari clipboard!`);
         onFilesPasted(files);
       }
     };

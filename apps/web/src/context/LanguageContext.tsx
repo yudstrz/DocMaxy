@@ -44,7 +44,7 @@ const TRANSLATIONS = {
     // General UI
     selectFiles: "Pilih File PDF",
     dropFiles: "atau tarik file ke sini",
-    pasteTip: "💡 Tip: Tekan Ctrl+V (atau Cmd+V) untuk menempel file langsung dari clipboard",
+    pasteTip: "Tip: Tekan Ctrl+V (atau Cmd+V) untuk menempel file langsung dari clipboard",
     clearAll: "Hapus Semua",
     selectAll: "Pilih Semua",
     deselectAll: "Batal Pilih",
@@ -148,7 +148,7 @@ const TRANSLATIONS = {
     // General UI
     selectFiles: "Select PDF Files",
     dropFiles: "or drop files here",
-    pasteTip: "💡 Tip: Press Ctrl+V (or Cmd+V) to paste files directly from clipboard",
+    pasteTip: "Tip: Press Ctrl+V (or Cmd+V) to paste files directly from clipboard",
     clearAll: "Clear All",
     selectAll: "Select All",
     deselectAll: "Deselect All",
