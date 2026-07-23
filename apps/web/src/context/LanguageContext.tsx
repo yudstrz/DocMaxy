@@ -71,6 +71,12 @@ const TRANSLATIONS = {
     generateAndDownload: "Buat & Unduh PDF",
     cameraScanTitle: "Pindai ke PDF (Kamera)",
     cameraScanDesc: "Pindai dokumen fisik dengan kamera HP/Webcam dan konversi langsung ke PDF.",
+    cameraPermissionTitle: "Izin Akses Kamera Diperlukan",
+    cameraPermissionDesc: "DocMaxy memerlukan izin kamera untuk memindai dokumen secara langsung. Proses foto 100% lokal & privat tanpa upload ke server.",
+    allowCameraButton: "Aktifkan & Izinkan Kamera",
+    cameraBlockedGuide: "Petunjuk Jika Izin Kamera Terblokir:",
+    cameraBlockedStep: "Klik ikon 🔒 Gembok / 🎥 Kamera di sebelah kiri alamat website di browser HP Anda, lalu ubah Izin Kamera menjadi 'Izinkan' (Allow).",
+    importGalleryAlt: "Atau Impor Gambar dari Galeri / File",
 
     // General UI & Controls
     selectFiles: "Pilih File PDF",
@@ -234,6 +240,12 @@ const TRANSLATIONS = {
     generateAndDownload: "Generate & Download PDF",
     cameraScanTitle: "Scan to PDF (Camera)",
     cameraScanDesc: "Scan physical documents using your device camera and convert directly to PDF.",
+    cameraPermissionTitle: "Camera Access Permission Required",
+    cameraPermissionDesc: "DocMaxy requires camera access to scan physical documents directly. 100% local & private processing without server uploads.",
+    allowCameraButton: "Allow & Enable Camera",
+    cameraBlockedGuide: "How to Unblock Camera Permission:",
+    cameraBlockedStep: "Tap the 🔒 Lock / 🎥 Camera icon on the left of your browser address bar, then change Camera permission to 'Allow'.",
+    importGalleryAlt: "Or Import Images from Gallery / File",
 
     // General UI & Controls
     selectFiles: "Select PDF Files",

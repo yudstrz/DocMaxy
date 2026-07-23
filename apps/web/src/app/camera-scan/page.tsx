@@ -3,7 +3,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
   X, Zap, ZapOff, Grid, Camera, RefreshCw, RotateCcw,
-  Crop, FileText, CheckCircle2, Download, Eye, Check, ArrowLeft, Sliders
+  Crop, FileText, CheckCircle2, Download, Eye, Check, ArrowLeft, Sliders,
+  ShieldAlert, Lock, AlertTriangle, ImagePlus
 } from 'lucide-react';
 import { applyCameraFilter, CameraFilterMode } from '@/utils/cameraFilter';
 import { ScannerCropModal } from '@/components/ScannerCropModal';
@@ -47,6 +48,7 @@ export default function CameraScanPage() {
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [flashOn, setFlashOn] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  const [cameraErrorMsg, setCameraErrorMsg] = useState<string | null>(null);
 
   // Gallery & Filter States
   const [photos, setPhotos] = useState<ScannedPhoto[]>([]);
@@ -73,7 +75,12 @@ export default function CameraScanPage() {
 
   // 1. Start Camera Stream with mobile fallback
   const startCamera = async () => {
+    setCameraErrorMsg(null);
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Browser Anda tidak mendukung API Kamera.');
+      }
+
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
@@ -98,10 +105,17 @@ export default function CameraScanPage() {
         await videoRef.current.play().catch(() => {});
       }
       setIsCameraActive(true);
+      setCameraErrorMsg(null);
     } catch (err: any) {
       console.error('Camera Start Error:', err);
-      toast.error('Gagal membuka kamera. Pastikan izin kamera telah diberikan.');
       setIsCameraActive(false);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setCameraErrorMsg(t('cameraBlockedStep'));
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setCameraErrorMsg('Perangkat kamera tidak ditemukan pada HP/Komputer Anda.');
+      } else {
+        setCameraErrorMsg('Gagal membuka kamera. Silakan klik tombol aktifkan di bawah untuk mencoba lagi.');
+      }
     }
   };
 
@@ -462,28 +476,61 @@ export default function CameraScanPage() {
         </div>
       )}
 
-      {/* Manual Start Camera Fallback */}
+      {/* -------------------- DEDICATED CAMERA PERMISSION & ACTIVATION SCREEN -------------------- */}
       {!isCameraActive && photos.length === 0 && (
-        <div className="min-h-[75vh] flex flex-col items-center justify-center p-6 bg-slate-950 text-center text-white">
-          <div className="p-6 bg-slate-900 rounded-3xl border border-slate-800 mb-6 shadow-xl max-w-sm w-full">
-            <Camera className="w-16 h-16 text-[#00B69A] mx-auto mb-3 animate-bounce" />
-            <h2 className="text-2xl font-bold text-white mb-2">CamScanner Studio</h2>
-            <p className="text-sm text-slate-400 max-w-sm mx-auto mb-6">
-              Pindai dokumen fisik atau foto dengan filter jernih Magic Color khas CamScanner.
+        <div className="min-h-[85vh] flex flex-col items-center justify-center p-6 bg-slate-950 text-center text-white">
+          <div className="p-6 md:p-8 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl max-w-md w-full flex flex-col items-center">
+            {/* Glowing Camera Shield Icon */}
+            <div className="w-20 h-20 rounded-full bg-[#00B69A]/20 border-2 border-[#00B69A] flex items-center justify-center mb-5 shadow-[0_0_30px_rgba(0,182,154,0.3)] animate-pulse">
+              <Camera className="w-10 h-10 text-[#00B69A]" />
+            </div>
+
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {t('cameraPermissionTitle')}
+            </h2>
+
+            <p className="text-xs sm:text-sm text-slate-300 mb-6 leading-relaxed">
+              {t('cameraPermissionDesc')}
             </p>
+
+            {/* Error Message Box if permission blocked */}
+            {cameraErrorMsg && (
+              <div className="w-full p-4 bg-rose-950/60 border border-rose-800/80 rounded-2xl mb-6 text-left flex items-start gap-3">
+                <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-rose-200">
+                  <p className="font-bold text-rose-300 mb-1">Akses Kamera Dibatasi</p>
+                  <p>{cameraErrorMsg}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Main Action Button */}
             <button
               onClick={startCamera}
-              className="w-full py-4 bg-[#00B69A] hover:bg-[#00a38a] text-white font-bold text-base rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2"
+              className="w-full py-4 bg-[#00B69A] hover:bg-[#00a38a] text-white font-extrabold text-sm rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2.5 active:scale-95 mb-6"
             >
               <Camera className="w-5 h-5" />
-              <span>Buka Kamera Sekarang</span>
+              <span>{t('allowCameraButton')}</span>
             </button>
-          </div>
 
-          <label className="cursor-pointer text-xs font-semibold text-slate-400 hover:text-white underline">
-            atau Impor Gambar dari Galeri
-            <input type="file" accept="image/*,.pdf" multiple onChange={handleImportFiles} className="hidden" />
-          </label>
+            {/* Browser Permission Guide Box */}
+            <div className="w-full p-4 bg-slate-950/80 border border-slate-800 rounded-2xl text-left mb-6">
+              <p className="text-xs font-bold text-slate-300 flex items-center gap-1.5 mb-1.5">
+                <Lock className="w-3.5 h-3.5 text-amber-400" />
+                <span>{t('cameraBlockedGuide')}</span>
+              </p>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                {t('cameraBlockedStep')}
+              </p>
+            </div>
+
+            {/* Alternative Import Action */}
+            <label className="cursor-pointer w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 border border-slate-700">
+              <ImagePlus className="w-4 h-4 text-cyan-400" />
+              <span>{t('importGalleryAlt')}</span>
+              <input type="file" accept="image/*,.pdf" multiple onChange={handleImportFiles} className="hidden" />
+            </label>
+          </div>
         </div>
       )}
 
