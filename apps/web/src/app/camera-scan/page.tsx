@@ -4,7 +4,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   X, Zap, ZapOff, Grid, Camera, RefreshCw, RotateCcw,
   Crop, FileText, CheckCircle2, Download, Eye, Check, ArrowLeft, Sliders,
-  ShieldAlert, Lock, AlertTriangle, ImagePlus
+  ShieldAlert, Lock, AlertTriangle, ImagePlus, ChevronLeft, ChevronRight, Plus, Trash2, Layers
 } from 'lucide-react';
 import { applyCameraFilter, CameraFilterMode } from '@/utils/cameraFilter';
 import { ScannerCropModal } from '@/components/ScannerCropModal';
@@ -58,6 +58,7 @@ export default function CameraScanPage() {
   const [photos, setPhotos] = useState<ScannedPhoto[]>([]);
   const [activePhotoIdx, setActivePhotoIdx] = useState<number>(0);
   const [activeFilter, setActiveFilter] = useState<CameraFilterMode>('enhance'); // CamScanner Magic Color
+  const [filterScope, setFilterScope] = useState<'current' | 'all'>('current'); // Apply to current vs all
   const [isComparingOriginal, setIsComparingOriginal] = useState(false);
 
   // Advanced PDF Export Settings State
@@ -333,18 +334,54 @@ export default function CameraScanPage() {
     stopCamera();
   };
 
-  // Select Filter
+  // Select Filter (Current Photo vs All Photos)
   const handleSelectFilter = async (mode: CameraFilterMode) => {
     setActiveFilter(mode);
     if (photos.length === 0) return;
 
-    const current = photos[activePhotoIdx];
-    if (!current) return;
+    if (filterScope === 'all') {
+      const toastId = toast.loading(
+        lang === 'id' ? `Menerapkan filter ke semua ${photos.length} foto...` : `Applying filter to all ${photos.length} photos...`
+      );
+      try {
+        const updatedPhotos = await Promise.all(
+          photos.map(async (photo) => {
+            const filteredSrc = await applyCameraFilter(photo.originalSrc, mode);
+            return { ...photo, filterMode: mode, filteredSrc };
+          })
+        );
+        setPhotos(updatedPhotos);
+        toast.success(
+          lang === 'id' ? `Filter diterapkan ke ${photos.length} foto!` : `Filter applied to all ${photos.length} photos!`,
+          { id: toastId }
+        );
+      } catch {
+        toast.error(lang === 'id' ? 'Gagal menerapkan filter' : 'Failed to apply filter', { id: toastId });
+      }
+    } else {
+      const current = photos[activePhotoIdx];
+      if (!current) return;
 
-    const newFilteredSrc = await applyCameraFilter(current.originalSrc, mode);
-    setPhotos((prev) =>
-      prev.map((p, idx) => (idx === activePhotoIdx ? { ...p, filterMode: mode, filteredSrc: newFilteredSrc } : p))
-    );
+      const newFilteredSrc = await applyCameraFilter(current.originalSrc, mode);
+      setPhotos((prev) =>
+        prev.map((p, idx) => (idx === activePhotoIdx ? { ...p, filterMode: mode, filteredSrc: newFilteredSrc } : p))
+      );
+    }
+  };
+
+  // Delete individual photo
+  const handleDeleteCurrentPhoto = () => {
+    if (photos.length === 0) return;
+    setPhotos((prev) => {
+      const updated = prev.filter((_, idx) => idx !== activePhotoIdx);
+      if (updated.length === 0) {
+        setIsCameraActive(true);
+      } else if (activePhotoIdx >= updated.length) {
+        setActivePhotoIdx(updated.length - 1);
+      }
+      return updated;
+    });
+    toast.success(lang === 'id' ? 'Foto dihapus' : 'Photo deleted');
   };
 
   // Rotate photo
@@ -740,32 +777,70 @@ export default function CameraScanPage() {
         </div>
       )}
 
-      {/* -------------------- PHASE 2: POST-PROCESSING (FULLSCREEN 100DVH) -------------------- */}
+      {/* -------------------- PHASE 2: BATCH PHOTO STUDIO & POST-PROCESSING -------------------- */}
       {!isCameraActive && photos.length > 0 && (
         <div className="fixed inset-0 z-50 flex flex-col justify-between bg-slate-950 text-white h-[100dvh] w-screen overflow-hidden">
-          {/* Header */}
-          <div className="h-14 shrink-0 flex items-center justify-between px-4 border-b border-slate-900">
-            <button onClick={() => setIsCameraActive(true)} className="p-2 text-slate-400 hover:text-white">
+          {/* Header Bar with Navigation & Delete */}
+          <div className="h-14 shrink-0 flex items-center justify-between px-3 border-b border-slate-900 bg-slate-950/90 z-20">
+            <button onClick={() => setIsCameraActive(true)} className="p-2 text-slate-300 hover:text-white flex items-center gap-1">
               <ArrowLeft className="w-5 h-5" />
+              <span className="text-xs font-semibold hidden sm:inline">{lang === 'id' ? 'Kamera' : 'Camera'}</span>
             </button>
 
-            <span className="font-bold text-xs tracking-wide text-slate-200">
-              CamScanner ({activePhotoIdx + 1}/{photos.length})
-            </span>
+            {/* Page Counter & Quick Prev/Next Arrows */}
+            <div className="flex items-center gap-2 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800">
+              <button
+                disabled={activePhotoIdx === 0}
+                onClick={() => setActivePhotoIdx((prev) => Math.max(0, prev - 1))}
+                className="text-slate-400 hover:text-white disabled:opacity-30 p-0.5"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="font-bold text-xs text-slate-200 tracking-wide">
+                {activePhotoIdx + 1} / {photos.length}
+              </span>
+              <button
+                disabled={activePhotoIdx === photos.length - 1}
+                onClick={() => setActivePhotoIdx((prev) => Math.min(photos.length - 1, prev + 1))}
+                className="text-slate-400 hover:text-white disabled:opacity-30 p-0.5"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
 
-            <button onClick={() => setPhotos([])} className="text-xs font-semibold text-rose-400 hover:underline">
-              Reset
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleDeleteCurrentPhoto}
+                title={lang === 'id' ? 'Hapus Foto Ini' : 'Delete Photo'}
+                className="p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-xl transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button onClick={() => setPhotos([])} className="text-xs font-semibold text-slate-400 hover:text-rose-400 px-2 py-1">
+                Reset
+              </button>
+            </div>
           </div>
 
-          {/* Page Preview Box */}
-          <div className="relative flex-1 min-h-0 flex items-center justify-center p-3 overflow-hidden bg-slate-950">
+          {/* Page Preview Box with Side Navigation Arrows */}
+          <div className="relative flex-1 min-h-0 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-slate-950">
+            {/* Left Chevron Button */}
+            {photos.length > 1 && (
+              <button
+                disabled={activePhotoIdx === 0}
+                onClick={() => setActivePhotoIdx((prev) => Math.max(0, prev - 1))}
+                className="absolute left-2 z-20 p-2 bg-slate-900/80 hover:bg-slate-800 text-white rounded-full border border-slate-700/80 shadow-lg disabled:opacity-20 active:scale-95 transition-all"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+
             {currentPhoto && (
               <div className="relative max-w-full max-h-full rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex items-center justify-center">
                 <img
                   src={isComparingOriginal ? currentPhoto.originalSrc : currentPhoto.filteredSrc}
                   alt={`Page ${activePhotoIdx + 1}`}
-                  className="max-h-[55vh] sm:max-h-[60vh] object-contain transition-transform duration-200"
+                  className="max-h-[48vh] sm:max-h-[55vh] object-contain transition-transform duration-200"
                   style={{ transform: `rotate(${currentPhoto.rotation}deg)` }}
                 />
 
@@ -781,11 +856,80 @@ export default function CameraScanPage() {
                 </button>
               </div>
             )}
+
+            {/* Right Chevron Button */}
+            {photos.length > 1 && (
+              <button
+                disabled={activePhotoIdx === photos.length - 1}
+                onClick={() => setActivePhotoIdx((prev) => Math.min(photos.length - 1, prev + 1))}
+                className="absolute right-2 z-20 p-2 bg-slate-900/80 hover:bg-slate-800 text-white rounded-full border border-slate-700/80 shadow-lg disabled:opacity-20 active:scale-95 transition-all"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
           </div>
 
-          {/* Filter Thumbnails Carousel */}
-          <div className="h-14 shrink-0 bg-slate-900/60 border-t border-slate-900 px-3 flex items-center">
-            <div className="flex gap-2 overflow-x-auto w-full py-1">
+          {/* Photo Thumbnail Strip (Daftar / Thumbnail Semua Foto Batch) */}
+          <div className="h-16 shrink-0 bg-slate-950 border-t border-slate-900 px-3 flex items-center">
+            <div className="flex gap-2 overflow-x-auto w-full py-1 scrollbar-thin">
+              {photos.map((photo, idx) => (
+                <button
+                  key={photo.id}
+                  onClick={() => setActivePhotoIdx(idx)}
+                  className={`relative shrink-0 w-12 h-14 rounded-xl overflow-hidden border-2 transition-all ${
+                    activePhotoIdx === idx
+                      ? 'border-[#00B69A] ring-2 ring-[#00B69A]/30 scale-105 z-10'
+                      : 'border-slate-800 opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <img src={photo.filteredSrc} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                  <span className={`absolute bottom-0 right-0 text-[8px] font-bold px-1 rounded-tl ${
+                    activePhotoIdx === idx ? 'bg-[#00B69A] text-white' : 'bg-slate-900/90 text-slate-300'
+                  }`}>
+                    #{idx + 1}
+                  </span>
+                </button>
+              ))}
+
+              {/* Add Photo / Snap More Button in Thumbnail Strip */}
+              <button
+                onClick={() => setIsCameraActive(true)}
+                className="shrink-0 w-12 h-14 rounded-xl border-2 border-dashed border-slate-700 hover:border-[#00B69A] bg-slate-900/50 flex flex-col items-center justify-center text-slate-400 hover:text-[#00B69A] transition-colors"
+                title={lang === 'id' ? 'Tambah Foto Ke Batch' : 'Add Photo to Batch'}
+              >
+                <Plus className="w-5 h-5 mb-0.5" />
+                <span className="text-[8px] font-bold">+ Tambah</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Bar + Scope Toggle (Terapkan ke Foto Ini vs Semua Foto) */}
+          <div className="h-13 shrink-0 bg-slate-900/70 border-t border-slate-800 px-3 flex items-center gap-2">
+            {/* Filter Scope Toggle */}
+            <div className="flex bg-slate-950 rounded-xl p-0.5 border border-slate-800 shrink-0">
+              <button
+                onClick={() => setFilterScope('current')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  filterScope === 'current' ? 'bg-[#00B69A] text-white shadow-sm' : 'text-slate-400'
+                }`}
+              >
+                {lang === 'id' ? 'Foto Ini' : 'This Photo'}
+              </button>
+              <button
+                onClick={() => setFilterScope('all')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 ${
+                  filterScope === 'all' ? 'bg-[#00B69A] text-white shadow-sm' : 'text-slate-400'
+                }`}
+              >
+                <Layers className="w-3 h-3" />
+                <span>{lang === 'id' ? 'Semua Foto' : 'All Photos'}</span>
+              </button>
+            </div>
+
+            <div className="w-px h-5 bg-slate-800 shrink-0" />
+
+            {/* Filter Carousel */}
+            <div className="flex gap-1.5 overflow-x-auto w-full py-1">
               {[
                 { id: 'original', label: 'Original' },
                 { id: 'lighten', label: 'Lighten' },
@@ -797,7 +941,7 @@ export default function CameraScanPage() {
                 <button
                   key={f.id}
                   onClick={() => handleSelectFilter(f.id as CameraFilterMode)}
-                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border shrink-0 ${
+                  className={`px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all border shrink-0 ${
                     activeFilter === f.id
                       ? 'border-[#00B69A] bg-[#00B69A]/20 text-[#00B69A]'
                       : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200'
@@ -813,12 +957,12 @@ export default function CameraScanPage() {
           <div className="h-16 shrink-0 bg-black border-t border-slate-900 flex items-center justify-between px-6">
             <button onClick={() => setIsCameraActive(true)} className="flex flex-col items-center text-slate-400 hover:text-white">
               <Camera className="w-5 h-5 mb-0.5" />
-              <span className="text-[9px]">Retake</span>
+              <span className="text-[9px]">{lang === 'id' ? '+ Foto' : '+ Photo'}</span>
             </button>
 
             <button onClick={handleRotateCurrent} className="flex flex-col items-center text-slate-400 hover:text-white">
               <RotateCcw className="w-5 h-5 mb-0.5" />
-              <span className="text-[9px]">Left</span>
+              <span className="text-[9px]">Rotate</span>
             </button>
 
             <button onClick={() => setIsCropModalOpen(true)} className="flex flex-col items-center text-slate-400 hover:text-white">
